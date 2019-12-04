@@ -44,7 +44,7 @@ func main() {
 	app.Authors = []cli.Author{
 		cli.Author{
 			Name:  "Ilya Mateyko",
-			Email: "astrophena@gmail.com",
+			Email: "inbox@astrophena.me",
 		},
 	}
 	app.Copyright = "(c) 2019 Ilya Mateyko. Licensed under the MIT License."
