@@ -33,20 +33,20 @@ cd "$(dirname $0)/.."
 
 main() {
   if ! type -p go &>/dev/null; then
-    echo "Go is not installed. Install it from https://golang.org and try again."
+    printf "Go is not installed. Install it and try again.\n"
     exit 1
   fi
 
+  export GOOS="${GOOS:=$(go env GOOS)}"
+  export GOARCH="${GOARCH:=$(go env GOARCH)}"
+
   [[ ! -d ./bin ]] && mkdir ./bin
 
-  if [[ "$GOOS" == "windows" ]]; then
-    local output="cloudshell.exe"
-  else
-    local output="cloudshell"
-  fi
+  local o="./bin/cloudshell"
+  [[ "$GOOS" == "windows" ]] && o+=".exe"
 
-  GOOS=${GOOS:=$(go env GOOS)} GOARCH=${GOARCH:=$(go env GOARCH)} go build \
-    -o "./bin/$output" \
+  go build \
+    -o $o \
     -ldflags="-X main.Version="$(date -u +%Y.%m.%d)" -s -w" \
     -mod vendor
 }
