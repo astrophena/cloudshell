@@ -5,7 +5,7 @@ This is [Google Cloud Shell] CLI, written in [Go].
 ## Requirements
 
 * [Git]
-* [Go] 1.12
+* [Go] 1.13
 
 `cloudshell` is using [Go Modules] to manage dependencies.
 
