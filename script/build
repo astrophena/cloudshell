@@ -47,6 +47,7 @@ main() {
 
   go build \
     -o $o \
+    -trimpath \
     -ldflags="-X main.Version="$(date -u +%Y.%m.%d)" -s -w" \
     -mod vendor
 }

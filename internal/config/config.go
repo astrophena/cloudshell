@@ -28,14 +28,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-
-	"github.com/OpenPeeDeeP/xdg"
 )
 
 // Dir returns path of the config directory, creating it if it doesn't exist.
 func Dir() string {
-	xdg := xdg.New("astrophena", "cloudshell")
-	dir := xdg.ConfigHome()
+	userConfigDir, err := os.UserConfigDir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	dir := filepath.Join(userConfigDir, "astrophena", "cloudshell")
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		log.Printf("Creating config directory at %s", dir)

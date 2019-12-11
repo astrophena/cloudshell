@@ -3,7 +3,6 @@ module github.com/astrophena/cloudshell
 go 1.13
 
 require (
-	github.com/OpenPeeDeeP/xdg v0.2.0
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/olekukonko/tablewriter v0.0.1
 	github.com/urfave/cli v1.21.0
