@@ -24,22 +24,23 @@
 package config // import "go.astrophena.me/cloudshell/internal/config"
 
 import (
-	"errors"
 	"log"
 	"os"
 	"path/filepath"
+
+	"go.astrophena.me/gen/pkg/fileutil"
 )
 
 // Dir returns path of the config directory, creating it if it doesn't exist.
 func Dir() string {
-	userConfigDir, err := os.UserConfigDir()
+	xdg, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dir := filepath.Join(userConfigDir, "astrophena", "cloudshell")
+	dir := filepath.Join(xdg, "cloudshell")
 
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
+	if fileutil.Exists(dir) {
 		log.Printf("Creating config directory at %s", dir)
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			log.Fatal(err)
@@ -54,8 +55,8 @@ func Dir() string {
 func ClientSecretsFile() string {
 	path := filepath.Join(Dir(), "client_secrets.json")
 
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		log.Fatal(errors.New("client_secrets.json is missing"))
+	if fileutil.Exists(path) {
+		log.Fatal("client_secrets.json is missing")
 	}
 
 	return filepath.Join(Dir(), "client_secrets.json")
