@@ -21,7 +21,7 @@
 // THE SOFTWARE.
 
 // Package config handles configuration management.
-package config // import "github.com/astrophena/cloudshell/internal/config"
+package config // import "go.astrophena.me/cloudshell/internal/config"
 
 import (
 	"errors"

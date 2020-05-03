@@ -21,7 +21,7 @@
 // THE SOFTWARE.
 
 // Package commands implements CLI commands.
-package commands // import "github.com/astrophena/cloudshell/internal/commands"
+package commands // import "go.astrophena.me/cloudshell/internal/commands"
 
 import (
 	"errors"
@@ -31,8 +31,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/astrophena/cloudshell/internal/auth"
-	"github.com/astrophena/cloudshell/internal/environment"
+	"go.astrophena.me/cloudshell/internal/auth"
+	"go.astrophena.me/cloudshell/internal/environment"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli"
@@ -70,17 +70,15 @@ func SSH(c *cli.Context) error {
 
 	switch e.State {
 	case "RUNNING":
-		environment.SSH(s)
+		environment.Connect(s)
 	case "STARTING":
 		environment.Wait(s)
-		environment.SSH(s)
+		environment.Connect(s)
 	case "DISABLED":
 		log.Println("==> Starting Cloud Shell...")
 		environment.Start(s)
 		environment.Wait(s)
-		environment.SSH(s)
-	default:
-		return errors.New("unknown state, that's weird")
+		environment.Connect(s)
 	}
 
 	return nil
@@ -114,22 +112,28 @@ func KeyList(c *cli.Context) error {
 func KeyAdd(c *cli.Context) error {
 	s := auth.Service()
 
-	if c.String("format") != "" && c.String("key") != "" {
-		k := &cloudshell.PublicKey{
-			Format: c.String("format"),
-			Key:    c.String("key"),
-		}
+	format := c.Args().Get(0)
+	key := c.Args().Get(1)
 
-		r := &cloudshell.CreatePublicKeyRequest{
-			Key: k,
-		}
+	if format == "" {
+		return errors.New("key format is required")
+	}
+	if key == "" {
+		return errors.New("key is required")
+	}
 
-		_, err := s.Users.Environments.PublicKeys.Create(environment.Name(), r).Do()
-		if err != nil {
-			return err
-		}
-	} else {
-		return errors.New("no format or/and key is present, that's weird")
+	k := &cloudshell.PublicKey{
+		Format: format,
+		Key:    key,
+	}
+
+	r := &cloudshell.CreatePublicKeyRequest{
+		Key: k,
+	}
+
+	_, err := s.Users.Environments.PublicKeys.Create(environment.Name(), r).Do()
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -139,17 +143,15 @@ func KeyAdd(c *cli.Context) error {
 func KeyDelete(c *cli.Context) error {
 	s := auth.Service()
 
-	if c.String("id") != "" {
-		id := fmt.Sprintf("%s/publicKeys/%s", environment.Name(), c.String("id"))
-		_, err := s.Users.Environments.PublicKeys.Delete(id).Do()
-		if err != nil {
-			return err
-		}
-	} else {
-		// No `id` is present. That's weird.
-		//
-		// Let's return some error.
-		return errors.New("no key ID is present, that's weird")
+	keyID := c.Args().Get(0)
+	if keyID == "" {
+		return errors.New("key id is required")
+	}
+
+	id := fmt.Sprintf("%s/publicKeys/%s", environment.Name(), keyID)
+	_, err := s.Users.Environments.PublicKeys.Delete(id).Do()
+	if err != nil {
+		return err
 	}
 
 	return nil

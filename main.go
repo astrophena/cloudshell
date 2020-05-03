@@ -21,13 +21,13 @@
 // THE SOFTWARE.
 
 // cloudshell is the Google Cloud Shell CLI.
-package main // import "github.com/astrophena/cloudshell"
+package main // import "go.astrophena.me/cloudshell"
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/astrophena/cloudshell/internal/commands"
+	"go.astrophena.me/cloudshell/internal/commands"
 
 	"github.com/urfave/cli"
 )
@@ -38,13 +38,13 @@ func main() {
 	app := cli.NewApp()
 
 	app.Name = "cloudshell"
-	app.Usage = "manage Google Cloud Shell"
+	app.Usage = "Manage Google Cloud Shell."
 	app.EnableBashCompletion = true
 	app.Version = Version // Generated with `script/build`.
 	app.Authors = []cli.Author{
 		cli.Author{
 			Name:  "Ilya Mateyko",
-			Email: "inbox@astrophena.me",
+			Email: "me@astrophena.me",
 		},
 	}
 	app.Copyright = "(c) 2019 Ilya Mateyko. Licensed under the MIT License."
@@ -76,33 +76,14 @@ func main() {
 				{
 					Name:    "add",
 					Aliases: []string{"a"},
-					Usage:   "Adds a public SSH key to an Cloud Shell",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:     "format, f",
-							Usage:    "Format of the key's content",
-							Required: true,
-						},
-						cli.StringFlag{
-							Name:     "key, k",
-							Usage:    "Content of the key",
-							Required: true,
-						},
-					},
-					Action: commands.KeyAdd,
+					Usage:   "Add a public SSH key to the Cloud Shell",
+					Action:  commands.KeyAdd,
 				},
 				{
 					Name:    "delete",
 					Aliases: []string{"d"},
-					Usage:   "Removes a public SSH key from an Cloud Shell",
-					Flags: []cli.Flag{
-						cli.StringFlag{
-							Name:     "id, i",
-							Usage:    "ID of a public key to delete",
-							Required: true,
-						},
-					},
-					Action: commands.KeyDelete,
+					Usage:   "Remove a public SSH key from the Cloud Shell",
+					Action:  commands.KeyDelete,
 				},
 			},
 		},

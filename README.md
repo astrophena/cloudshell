@@ -1,5 +1,24 @@
-This is the legacy version of [Google Cloud Shell] CLI.
+# Google Cloud Shell CLI
 
-See the old [README.md](README-old.md) file.
+This is [Google Cloud Shell] CLI, written in [Go].
 
-[Google Cloud Shell]: https://cloud.google.com/shell
+## Requirements
+
+* [Git]
+* [Go] 1.14
+* `make`
+
+`cloudshell` is using [Go Modules] to manage dependencies.
+
+## Building from source
+
+```sh
+$ git clone https://github.com/astrophena/cloudshell
+$ cd cloudshell
+$ make
+```
+
+[Google Cloud Shell]: https://cloud.google.com/shell/
+[Git]: https://git-scm.com
+[Go]: https://golang.org
+[Go Modules]: https://github.com/golang/go/wiki/Modules

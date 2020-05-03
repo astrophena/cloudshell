@@ -21,7 +21,7 @@
 // THE SOFTWARE.
 
 // Package environment implements functions for managing Cloud Shell.
-package environment // import "github.com/astrophena/cloudshell/internal/environment"
+package environment // import "go.astrophena.me/cloudshell/internal/environment"
 
 import (
 	"fmt"
@@ -31,15 +31,14 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/astrophena/cloudshell/internal/auth"
+	"go.astrophena.me/cloudshell/internal/auth"
 
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
 )
 
 // Name returns a name of the default environment.
 func Name() string {
-	n := fmt.Sprintf("users/%s/environments/default", auth.Email())
-	return n
+	return fmt.Sprintf("users/%s/environments/default", auth.Email())
 }
 
 // Start starts an existing environment.
@@ -50,8 +49,8 @@ func Start(s *cloudshell.Service) {
 	}
 }
 
-// SSH SSHes to the environment.
-func SSH(s *cloudshell.Service) {
+// Connect connects to the environment via SSH.
+func Connect(s *cloudshell.Service) {
 	e, err := s.Users.Environments.Get(Name()).Do()
 	if err != nil {
 		log.Fatal(err)
@@ -71,8 +70,7 @@ func SSH(s *cloudshell.Service) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
-	err = cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		log.Fatal(err)
 	}
 }

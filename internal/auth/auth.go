@@ -21,9 +21,10 @@
 // THE SOFTWARE.
 
 // Package auth handles authentication with APIs.
-package auth // import "github.com/astrophena/cloudshell/internal/auth"
+package auth // import "go.astrophena.me/cloudshell/internal/auth"
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,9 +33,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/astrophena/cloudshell/internal/config"
+	"go.astrophena.me/cloudshell/internal/config"
 
-	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
