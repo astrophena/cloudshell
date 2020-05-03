@@ -40,7 +40,7 @@ func Dir() string {
 
 	dir := filepath.Join(xdg, "cloudshell")
 
-	if fileutil.Exists(dir) {
+	if !fileutil.Exists(dir) {
 		log.Printf("Creating config directory at %s", dir)
 		if err := os.MkdirAll(dir, 0700); err != nil {
 			log.Fatal(err)
@@ -55,7 +55,7 @@ func Dir() string {
 func ClientSecretsFile() string {
 	path := filepath.Join(Dir(), "client_secrets.json")
 
-	if fileutil.Exists(path) {
+	if !fileutil.Exists(path) {
 		log.Fatal("client_secrets.json is missing")
 	}
 
