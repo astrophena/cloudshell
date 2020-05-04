@@ -32,18 +32,18 @@ func Start(s *cloudshell.Service) {
 }
 
 // Connect connects to the environment via SSH.
-func Connect(s *cloudshell.Service) {
-	e, err := s.Users.Environments.Get(Name()).Do()
+func Connect(s *cloudshell.Service) (err error) {
+	env, err := s.Users.Environments.Get(Name()).Do()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
-	host := fmt.Sprintf("%s@%s", e.SshUsername, e.SshHost)
-	port := strconv.FormatInt(e.SshPort, 10)
+	host := fmt.Sprintf("%s@%s", env.SshUsername, env.SshHost)
+	port := strconv.FormatInt(env.SshPort, 10)
 
 	path, err := exec.LookPath("ssh")
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	cmd := exec.Command(path, host, "-p", port, "-o", "StrictHostKeyChecking=no")
@@ -53,8 +53,10 @@ func Connect(s *cloudshell.Service) {
 	cmd.Stdin = os.Stdin
 
 	if err := cmd.Run(); err != nil {
-		log.Fatal(err)
+		return err
 	}
+
+	return nil
 }
 
 // Wait polls for state of booting environment.
