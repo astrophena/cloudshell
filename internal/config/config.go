@@ -15,16 +15,15 @@ import (
 
 // Dir returns path of the config directory, creating it if it doesn't exist.
 func Dir() string {
-	xdg, err := os.UserConfigDir()
+	ucd, err := os.UserConfigDir()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	dir := filepath.Join(xdg, "cloudshell")
+	dir := filepath.Join(ucd, "cloudshell")
 
 	if !fileutil.Exists(dir) {
-		log.Printf("Creating config directory at %s", dir)
-		if err := os.MkdirAll(dir, 0700); err != nil {
+		if err := fileutil.Mkdir(dir); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -38,13 +37,14 @@ func ClientSecretsFile() string {
 	path := filepath.Join(Dir(), "client_secrets.json")
 
 	if !fileutil.Exists(path) {
-		log.Fatal("client_secrets.json is missing")
+		log.Fatal("client_secrets.json is missing. ")
 	}
 
 	return filepath.Join(Dir(), "client_secrets.json")
 }
 
-// TokFile returns path of the `token.json` file.
-func TokFile() string {
-	return filepath.Join(Dir(), "token.json")
+// CredsFile returns path to the JSON file
+// with the authentication credentials.
+func CredsFile() string {
+	return filepath.Join(Dir(), "creds.json")
 }

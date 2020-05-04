@@ -21,28 +21,38 @@ import (
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
 )
 
+const startingMsg = "Cloud Shell is starting. Run \"cloudshell connect\" again in a few minutes."
+
 // Info implements the "info" command.
 func Info(c *cli.Context) (err error) {
-	s := auth.Service()
-
-	e, err := s.Users.Environments.Get(environment.Name()).Do()
+	s, err := auth.Service()
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("State: %s\n", e.State)
-	fmt.Printf("Docker Image: %s\n", e.DockerImage)
-	if e.SshHost != "" {
-		fmt.Printf("SSH Host: %s\n", e.SshHost)
+	name, err := environment.Name()
+	if err != nil {
+		return err
 	}
-	if e.SshPort != 0 {
-		fmt.Printf("SSH Port: %d\n", e.SshPort)
+
+	env, err := s.Users.Environments.Get(name).Do()
+	if err != nil {
+		return err
 	}
-	if e.SshUsername != "" {
-		fmt.Printf("SSH Username: %s\n", e.SshUsername)
+
+	fmt.Printf("State: %s\n", env.State)
+	fmt.Printf("Docker Image: %s\n", env.DockerImage)
+	if env.SshHost != "" {
+		fmt.Printf("SSH Host: %s\n", env.SshHost)
 	}
-	if e.WebHost != "" {
-		fmt.Printf("Web Host: %s\n", e.WebHost)
+	if env.SshPort != 0 {
+		fmt.Printf("SSH Port: %d\n", env.SshPort)
+	}
+	if env.SshUsername != "" {
+		fmt.Printf("SSH Username: %s\n", env.SshUsername)
+	}
+	if env.WebHost != "" {
+		fmt.Printf("Web Host: %s\n", env.WebHost)
 	}
 
 	return nil
@@ -50,14 +60,20 @@ func Info(c *cli.Context) (err error) {
 
 // Connect implements the "connect" command.
 func Connect(c *cli.Context) (err error) {
-	s := auth.Service()
-
-	env, err := s.Users.Environments.Get(environment.Name()).Do()
+	s, err := auth.Service()
 	if err != nil {
 		return err
 	}
 
-	startingMsg := "Cloud Shell is starting. Run \"cloudshell connect\" again in a few minutes."
+	name, err := environment.Name()
+	if err != nil {
+		return err
+	}
+
+	env, err := s.Users.Environments.Get(name).Do()
+	if err != nil {
+		return err
+	}
 
 	switch env.State {
 	case "RUNNING":
@@ -67,7 +83,9 @@ func Connect(c *cli.Context) (err error) {
 	case "STARTING":
 		log.Println(startingMsg)
 	case "DISABLED":
-		environment.Start(s)
+		if err := environment.Start(s); err != nil {
+			return err
+		}
 		log.Println(startingMsg)
 	}
 
@@ -76,9 +94,17 @@ func Connect(c *cli.Context) (err error) {
 
 // KeyList implements the "key list" command.
 func KeyList(c *cli.Context) (err error) {
-	s := auth.Service()
+	s, err := auth.Service()
+	if err != nil {
+		return err
+	}
 
-	e, err := s.Users.Environments.Get(environment.Name()).Do()
+	name, err := environment.Name()
+	if err != nil {
+		return err
+	}
+
+	env, err := s.Users.Environments.Get(name).Do()
 	if err != nil {
 		return err
 	}
@@ -87,10 +113,10 @@ func KeyList(c *cli.Context) (err error) {
 	table.SetHeader([]string{"ID", "Format", "Key"})
 	table.SetBorder(false)
 
-	for _, k := range e.PublicKeys {
-		id := strings.Split(k.Name, "/")
-		snip := k.Key[:10] + "..."
-		table.Append([]string{id[5], k.Format, snip})
+	for _, publicKey := range env.PublicKeys {
+		id := strings.Split(publicKey.Name, "/")
+		preview := publicKey.Key[:10] + "..."
+		table.Append([]string{id[5], publicKey.Format, preview})
 	}
 
 	table.Render()
@@ -100,7 +126,10 @@ func KeyList(c *cli.Context) (err error) {
 
 // KeyAdd implements the "key add" command.
 func KeyAdd(c *cli.Context) (err error) {
-	s := auth.Service()
+	s, err := auth.Service()
+	if err != nil {
+		return err
+	}
 
 	format := c.Args().Get(0)
 	key := c.Args().Get(1)
@@ -121,7 +150,12 @@ func KeyAdd(c *cli.Context) (err error) {
 		Key: k,
 	}
 
-	_, err = s.Users.Environments.PublicKeys.Create(environment.Name(), r).Do()
+	name, err := environment.Name()
+	if err != nil {
+		return err
+	}
+
+	_, err = s.Users.Environments.PublicKeys.Create(name, r).Do()
 	if err != nil {
 		return err
 	}
@@ -131,14 +165,22 @@ func KeyAdd(c *cli.Context) (err error) {
 
 // KeyDelete implements the "key delete" command.
 func KeyDelete(c *cli.Context) (err error) {
-	s := auth.Service()
+	s, err := auth.Service()
+	if err != nil {
+		return err
+	}
 
 	keyID := c.Args().Get(0)
 	if keyID == "" {
 		return errors.New("key id is required")
 	}
 
-	id := fmt.Sprintf("%s/publicKeys/%s", environment.Name(), keyID)
+	name, err := environment.Name()
+	if err != nil {
+		return err
+	}
+
+	id := fmt.Sprintf("%s/publicKeys/%s", name, keyID)
 
 	_, err = s.Users.Environments.PublicKeys.Delete(id).Do()
 	if err != nil {

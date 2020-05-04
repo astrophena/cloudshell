@@ -7,33 +7,49 @@ package environment // import "go.astrophena.me/cloudshell/internal/environment"
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strconv"
-	"time"
 
 	"go.astrophena.me/cloudshell/internal/auth"
 
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
 )
 
-// Name returns a name of the default environment.
-func Name() string {
-	return fmt.Sprintf("users/%s/environments/default", auth.Email())
-}
-
-// Start starts an existing environment.
-func Start(s *cloudshell.Service) {
-	_, err := s.Users.Environments.Start(Name(), &cloudshell.StartEnvironmentRequest{}).Do()
+// Name returns a name of the default environment or an error.
+func Name() (name string, err error) {
+	email, err := auth.Email()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
+
+	return fmt.Sprintf("users/%s/environments/default", email), nil
 }
 
-// Connect connects to the environment via SSH.
+// Start starts a default environment.
+func Start(s *cloudshell.Service) (err error) {
+	name, err := Name()
+	if err != nil {
+		return err
+	}
+
+	r := &cloudshell.StartEnvironmentRequest{}
+
+	if _, err := s.Users.Environments.Start(name, r).Do(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Connect connects to the default environment via SSH.
 func Connect(s *cloudshell.Service) (err error) {
-	env, err := s.Users.Environments.Get(Name()).Do()
+	name, err := Name()
+	if err != nil {
+		return err
+	}
+
+	env, err := s.Users.Environments.Get(name).Do()
 	if err != nil {
 		return err
 	}
@@ -57,27 +73,4 @@ func Connect(s *cloudshell.Service) (err error) {
 	}
 
 	return nil
-}
-
-// Wait polls for state of booting environment.
-func Wait(s *cloudshell.Service) {
-	e, err := s.Users.Environments.Get(Name()).Do()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if e.State == "STARTING" {
-		for {
-			e, err := s.Users.Environments.Get(Name()).Do()
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			if e.State == "RUNNING" {
-				break
-			} else {
-				time.Sleep(3 * time.Second)
-			}
-		}
-	}
 }

@@ -2,7 +2,7 @@
 // Use of this source code is governed by the MIT
 // license that can be found in the LICENSE.md file.
 
-// Package auth handles authentication with APIs.
+// Package auth handles authentication with the Google APIs.
 package auth // import "go.astrophena.me/cloudshell/internal/auth"
 
 import (
@@ -23,39 +23,39 @@ import (
 	userinfo "google.golang.org/api/oauth2/v2"
 )
 
-// Service returns the instance of Cloud Shell API service.
-func Service() *cloudshell.Service {
+// TODO: Use normal error handling instead of log.Fatal().
+
+// Service returns the Cloud Shell API client.
+func Service() (service *cloudshell.Service, err error) {
 	c := client()
-	s, err := cloudshell.New(c)
+
+	service, err = cloudshell.New(c)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return s
+	return service, nil
 }
 
 // Email retrieves the email of authorized user, then returns it.
-func Email() string {
-	var e string
-
+func Email() (email string, err error) {
 	c := client()
 	s, err := userinfo.New(c)
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	ti, err := s.Tokeninfo().Do()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
-	if ti.Email != "" {
-		e = ti.Email
-	} else {
-		log.Fatal(errors.New("no email present in the token info"))
+	if ti.Email == "" {
+		return "", errors.New("auth: no email present in the token info")
 	}
+	email = ti.Email
 
-	return e
+	return email, nil
 }
 
 // client retrieves a token, saves the token, then returns the generated client.
@@ -71,10 +71,10 @@ func client() *http.Client {
 		log.Fatalf("unable to parse client secret file to config: %v", err)
 	}
 
-	tok, err := tokenFromFile(config.TokFile())
+	tok, err := tokenFromFile(config.CredsFile())
 	if err != nil {
 		tok = token(cfg)
-		saveToken(config.TokFile(), tok)
+		saveToken(config.CredsFile(), tok)
 	}
 	return cfg.Client(context.Background(), tok)
 }

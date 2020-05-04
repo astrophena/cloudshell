@@ -1,0 +1,37 @@
+project_name: cloudshell
+before:
+  hooks:
+    - go mod tidy
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+    # Keep these synced with Makefile.
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X main.Version={{.Version}} -buildid=
+archives:
+  - format: binary
+nfpms:
+  - package_name: cloudshell
+    vendor: Ilya Mateyko
+    homepage: https://go.astrophena.me/cloudshell
+    maintainer: Ilya Mateyko <me@astrophena.me>
+    description: Google Cloud Shell CLI.
+    license: MIT
+    formats:
+      - deb
+    bindir: /usr/bin
+checksum:
+  name_template: 'checksums.txt'
+snapshot:
+  # Keep this synced with Makefile.
+  name_template: "{{ .Tag }}-next"
+changelog:
+  skip: true
