@@ -3,17 +3,22 @@
 # license that can be found in the LICENSE.md file.
 
 PREFIX  ?= $(HOME)
-VERSION ?= $(shell date -u +%Y.%m.%d)
+VERSION ?= $(shell git describe --abbrev=0 --tags | cut -c 2-)-next
 
 BIN     = cloudshell
 BINDIR  = $(PREFIX)/bin
 
+DISTDIR = ./dist
+
 LDFLAGS = "-s -w -X main.Version=$(VERSION) -buildid="
 
-.PHONY: build install clean help
+.PHONY: build dist install clean help
 
 build: ## Build
 	@ go build -o $(BIN) -trimpath -ldflags=$(LDFLAGS)
+
+dist: ## Build with GoReleaser
+	@ goreleaser --snapshot --skip-publish
 
 install: build ## Install
 	@ mkdir -m755 -p $(BINDIR) && \
