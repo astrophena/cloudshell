@@ -6,7 +6,7 @@
 package config // import "go.astrophena.me/cloudshell/internal/config"
 
 import (
-	"log"
+	"errors"
 	"os"
 	"path/filepath"
 
@@ -14,37 +14,47 @@ import (
 )
 
 // Dir returns path of the config directory, creating it if it doesn't exist.
-func Dir() string {
+func Dir() (string, error) {
 	ucd, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatal(err)
+		return "", err
 	}
 
 	dir := filepath.Join(ucd, "cloudshell")
 
 	if !fileutil.Exists(dir) {
 		if err := fileutil.Mkdir(dir); err != nil {
-			log.Fatal(err)
+			return "", err
 		}
 	}
 
-	return dir
+	return dir, nil
 }
 
-// ClientSecretsFile returns path of the `client_secrets.json` file. It also
-// checks if it does exist.
-func ClientSecretsFile() string {
-	path := filepath.Join(Dir(), "client_secrets.json")
-
-	if !fileutil.Exists(path) {
-		log.Fatal("client_secrets.json is missing. ")
+// ClientSecretsFile returns path of the `client_secrets.json` file.
+// It also checks if it does exist.
+func ClientSecretsFile() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
 	}
 
-	return filepath.Join(Dir(), "client_secrets.json")
+	path := filepath.Join(dir, "client_secrets.json")
+
+	if !fileutil.Exists(path) {
+		return "", errors.New("config: client_secrets.json is missing")
+	}
+
+	return path, nil
 }
 
 // CredsFile returns path to the JSON file
 // with the authentication credentials.
-func CredsFile() string {
-	return filepath.Join(Dir(), "creds.json")
+func CredsFile() (string, error) {
+	dir, err := Dir()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(dir, "creds.json"), nil
 }

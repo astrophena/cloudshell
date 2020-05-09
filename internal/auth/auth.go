@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 
@@ -23,11 +22,12 @@ import (
 	userinfo "google.golang.org/api/oauth2/v2"
 )
 
-// TODO: Use normal error handling instead of log.Fatal().
-
-// Service returns the Cloud Shell API client.
+// Service returns the Cloud Shell API service.
 func Service() (service *cloudshell.Service, err error) {
-	c := client()
+	c, err := client()
+	if err != nil {
+		return nil, err
+	}
 
 	service, err = cloudshell.New(c)
 	if err != nil {
@@ -39,7 +39,11 @@ func Service() (service *cloudshell.Service, err error) {
 
 // Email retrieves the email of authorized user, then returns it.
 func Email() (email string, err error) {
-	c := client()
+	c, err := client()
+	if err != nil {
+		return "", err
+	}
+
 	s, err := userinfo.New(c)
 	if err != nil {
 		return "", err
@@ -58,64 +62,81 @@ func Email() (email string, err error) {
 	return email, nil
 }
 
-// client retrieves a token, saves the token, then returns the generated client.
-func client() *http.Client {
-	b, err := ioutil.ReadFile(config.ClientSecretsFile())
+func client() (*http.Client, error) {
+	path, err := config.ClientSecretsFile()
 	if err != nil {
-		log.Fatalf("unable to read client secrets file: %v", err)
+		return nil, err
 	}
 
-	cfg, err := google.ConfigFromJSON(b,
-		fmt.Sprintf("%s email", cloudshell.CloudPlatformScope))
+	b, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatalf("unable to parse client secret file to config: %v", err)
+		return nil, fmt.Errorf("auth: unable to read client secrets file: %w", err)
 	}
 
-	tok, err := tokenFromFile(config.CredsFile())
+	scopes := cloudshell.CloudPlatformScope + " email"
+	cfg, err := google.ConfigFromJSON(b, scopes)
 	if err != nil {
-		tok = token(cfg)
-		saveToken(config.CredsFile(), tok)
+		return nil, fmt.Errorf("auth: unable to parse client secrets file: %w", err)
 	}
-	return cfg.Client(context.Background(), tok)
+
+	credsFile, err := config.CredsFile()
+	if err != nil {
+		return nil, err
+	}
+
+	tok, err := tokenFromFile(credsFile)
+	if err != nil {
+		tok, err = token(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := saveToken(credsFile, tok); err != nil {
+			return nil, err
+		}
+	}
+
+	return cfg.Client(context.Background(), tok), nil
 }
 
-// token requests a token, then returns the retrieved token.
-func token(config *oauth2.Config) *oauth2.Token {
+func token(config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: %v\n", authURL)
 
 	var authCode string
 	if _, err := fmt.Scan(&authCode); err != nil {
-		log.Fatalf("unable to read authorization code: %v", err)
+		return nil, fmt.Errorf("auth: unable to read authorization code: %w", err)
 	}
 
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
-		log.Fatalf("unable to retrieve token: %v", err)
+		return nil, fmt.Errorf("auth: unable to retrieve oauth token: %w", err)
 	}
-	return tok
+
+	return tok, nil
 }
 
-// tokenFromFile retrieves a token from a local file.
 func tokenFromFile(file string) (*oauth2.Token, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
 	tok := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(tok)
-	return tok, err
+
+	return tok, json.NewDecoder(f).Decode(tok)
 }
 
-// saveToken saves a token to a file path.
-func saveToken(path string, token *oauth2.Token) {
-	fmt.Printf("Saving credential file to: %s\n", path)
+func saveToken(path string, token *oauth2.Token) error {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Fatalf("unable to cache oauth token: %v", err)
+		return fmt.Errorf("auth: unable to cache oauth token: %w", err)
 	}
 	defer f.Close()
+
 	json.NewEncoder(f).Encode(token)
+
+	return nil
 }
