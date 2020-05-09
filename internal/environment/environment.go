@@ -26,7 +26,7 @@ func Name() (name string, err error) {
 	return fmt.Sprintf("users/%s/environments/default", email), nil
 }
 
-// Start starts a default environment.
+// Start starts the default environment.
 func Start(s *cloudshell.Service) (err error) {
 	name, err := Name()
 	if err != nil {
