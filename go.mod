@@ -3,7 +3,6 @@ module go.astrophena.me/cloudshell
 go 1.14
 
 require (
-	cloud.google.com/go v0.56.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
