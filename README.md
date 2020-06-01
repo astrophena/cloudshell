@@ -32,6 +32,15 @@ cloudshell is the [Google Cloud Shell] CLI, written in [Go].
 
            $ make install PREFIX="$HOME/.local" # Installs to $HOME/.local/bin.
 
+## Setup
+
+* Create a project in the Google API Console.
+* Enable the Cloud Shell API.
+* Create credentials, download and place them to:
+  * `$XDG_CONFIG_HOME/cloudshell/client_secrets.json` (Linux)
+  * `$HOME/Library/Application Support/cloudshell/client_secrets.json` (macOS)
+* Run any command (e.g. `cloudshell connect`) to authenticate.
+
 ## License
 
 [MIT] © Ilya Mateyko
