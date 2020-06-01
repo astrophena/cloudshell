@@ -1,13 +1,12 @@
 # `cloudshell`
 
-> **Work in Progress**: `cloudshell` is not finished and has many, many
-> rough edges. I don't know when `cloudshell` will be finished. Maybe never.
+> **Work in Progress**: `cloudshell` is not finished and has many rough edges.
 
-cloudshell is the [Google Cloud Shell] CLI, written in [Go].
+cloudshell is the [Google Cloud Shell](https://cloud.google.com/shell/) CLI, written in [Go].
 
 ## Installation
 
-1. Install [Go] 1.14 if you haven't yet.
+1. [Install Go](https://golang.org/dl) 1.14 if you haven't yet.
 
 2. Two installation options are supported:
 
@@ -39,12 +38,12 @@ cloudshell is the [Google Cloud Shell] CLI, written in [Go].
 * Create credentials, download and place them to:
   * `$XDG_CONFIG_HOME/cloudshell/client_secrets.json` (Linux)
   * `$HOME/Library/Application Support/cloudshell/client_secrets.json` (macOS)
-* Run any command (e.g. `cloudshell connect`) to authenticate.
+* Run any command (e.g. `cloudshell info`) to authenticate.
+* Add your SSH key by running `cloudshell key add`.
+* Try to connect: `cloudshell connect`.
 
 ## License
 
-[MIT] © Ilya Mateyko
+[MIT](LICENSE.md) © Ilya Mateyko
 
-[Google Cloud Shell]: https://cloud.google.com/shell/
-[Go]: https://golang.org
-[MIT]: LICENSE.md
+[Google Cloud Shell]: 
