@@ -131,7 +131,7 @@ func KeyAdd(c *cli.Context) (err error) {
 		return errors.New("key add: key is required")
 	}
 
-	ks := strings.SplitN(key, " ", 2)
+	ks := strings.Split(key, " ")
 
 	// See https://cloud.google.com/shell/docs/reference/rest/Shared.Types/Format
 	// for supported key types.
