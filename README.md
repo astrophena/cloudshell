@@ -45,5 +45,3 @@ cloudshell is the [Google Cloud Shell](https://cloud.google.com/shell/) CLI, wri
 ## License
 
 [MIT](LICENSE.md) © Ilya Mateyko
-
-[Google Cloud Shell]: 
