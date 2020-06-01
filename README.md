@@ -2,7 +2,7 @@
 
 > **Work in Progress**: `cloudshell` is not finished and has many rough edges.
 
-cloudshell is the [Google Cloud Shell](https://cloud.google.com/shell/) CLI, written in [Go].
+cloudshell is the [Google Cloud Shell](https://cloud.google.com/shell/) CLI, written in Go.
 
 ## Installation
 
