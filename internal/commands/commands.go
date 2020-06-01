@@ -110,13 +110,12 @@ func KeyList(c *cli.Context) (err error) {
 	}
 
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "Format", "Key"})
+	table.SetHeader([]string{"ID", "Type"})
 	table.SetBorder(false)
 
 	for _, publicKey := range env.PublicKeys {
 		id := strings.Split(publicKey.Name, "/")
-		preview := publicKey.Key[:10] + "..."
-		table.Append([]string{id[5], publicKey.Format, preview})
+		table.Append([]string{id[5], publicKey.Format})
 	}
 
 	table.Render()
@@ -126,28 +125,42 @@ func KeyList(c *cli.Context) (err error) {
 
 // KeyAdd implements the "key add" command.
 func KeyAdd(c *cli.Context) (err error) {
+	key := c.Args().Get(0)
+
+	if key == "" {
+		return errors.New("key add: key is required")
+	}
+
+	ks := strings.SplitN(key, " ", 2)
+
+	// See https://cloud.google.com/shell/docs/reference/rest/Shared.Types/Format
+	// for supported key types.
+	var kf string
+	switch ks[0] {
+	case "ssh-dss":
+		kf = "SSH_DSS"
+	case "ssh-rsa":
+		kf = "SSH_RSA"
+	case "ecdsa-sha2-nistp256":
+		kf = "ECDSA_SHA2_NISTP256"
+	case "ecdsa-sha2-nistp384":
+		kf = "ECDSA_SHA2_NISTP384"
+	case "ecdsa-sha2-nistp521":
+		kf = "ECDSA_SHA2_NISTP521"
+	default:
+		return errors.New("key add: format is unsupported")
+	}
+
 	s, err := auth.Service()
 	if err != nil {
 		return err
 	}
 
-	format := c.Args().Get(0)
-	key := c.Args().Get(1)
-
-	if format == "" {
-		return errors.New("key format is required")
-	}
-	if key == "" {
-		return errors.New("key is required")
-	}
-
-	k := &cloudshell.PublicKey{
-		Format: format,
-		Key:    key,
-	}
-
 	r := &cloudshell.CreatePublicKeyRequest{
-		Key: k,
+		Key: &cloudshell.PublicKey{
+			Format: kf,
+			Key:    ks[1],
+		},
 	}
 
 	name, err := environment.Name()
@@ -165,14 +178,9 @@ func KeyAdd(c *cli.Context) (err error) {
 
 // KeyDelete implements the "key delete" command.
 func KeyDelete(c *cli.Context) (err error) {
-	s, err := auth.Service()
-	if err != nil {
-		return err
-	}
-
-	keyID := c.Args().Get(0)
-	if keyID == "" {
-		return errors.New("key id is required")
+	id := c.Args().Get(0)
+	if id == "" {
+		return errors.New("id is required")
 	}
 
 	name, err := environment.Name()
@@ -180,10 +188,14 @@ func KeyDelete(c *cli.Context) (err error) {
 		return err
 	}
 
-	id := fmt.Sprintf("%s/publicKeys/%s", name, keyID)
-
-	_, err = s.Users.Environments.PublicKeys.Delete(id).Do()
+	s, err := auth.Service()
 	if err != nil {
+		return err
+	}
+
+	if _, err := s.Users.Environments.PublicKeys.Delete(
+		fmt.Sprintf("%s/publicKeys/%s", name, id),
+	).Do(); err != nil {
 		return err
 	}
 

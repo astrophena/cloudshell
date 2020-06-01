@@ -14,6 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// Version is a version of cloudshell.
 var Version = "dev"
 
 func main() {
@@ -26,38 +27,38 @@ func main() {
 		Version:              Version,
 		HideHelpCommand:      true,
 		Commands: []*cli.Command{
-			&cli.Command{
+			{
 				Name:    "connect",
 				Aliases: []string{"c"},
 				Usage:   "Establish an interactive SSH session with Cloud Shell",
 				Action:  commands.Connect,
 			},
-			&cli.Command{
+			{
 				Name:    "info",
 				Aliases: []string{"i"},
 				Usage:   "Print information about the environment",
 				Action:  commands.Info,
 			},
-			&cli.Command{
+			{
 				Name:            "key",
 				Aliases:         []string{"k"},
 				Usage:           "Manage public keys associated with the Cloud Shell",
 				HideHelpCommand: true,
 				Subcommands: []*cli.Command{
-					&cli.Command{
+					{
 						Name:    "list",
 						Aliases: []string{"l"},
 						Usage:   "List public keys associated with the Cloud Shell",
 						Action:  commands.KeyList,
 					},
-					&cli.Command{
+					{
 						Name:      "add",
 						Aliases:   []string{"a"},
 						Usage:     "Add a public SSH key to the Cloud Shell",
-						ArgsUsage: "[key format] [key]",
+						ArgsUsage: "[public key, e.g. $(cat ~/.ssh/id_rsa.pub)]",
 						Action:    commands.KeyAdd,
 					},
-					&cli.Command{
+					{
 						Name:      "delete",
 						Aliases:   []string{"d"},
 						Usage:     "Remove a public SSH key from the Cloud Shell",
