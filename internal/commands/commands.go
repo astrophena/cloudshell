@@ -4,7 +4,7 @@
 
 // Package commands implements commands of the cloudshell's command
 // line interface.
-package commands // import "go.astrophena.me/cloudshell/internal/commands"
+package commands // import "github.com/astrophena/cloudshell/internal/commands"
 
 import (
 	"errors"
@@ -13,8 +13,8 @@ import (
 	"os"
 	"strings"
 
-	"go.astrophena.me/cloudshell/internal/auth"
-	"go.astrophena.me/cloudshell/internal/environment"
+	"github.com/astrophena/cloudshell/internal/auth"
+	"github.com/astrophena/cloudshell/internal/environment"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"

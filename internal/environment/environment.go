@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE.md file.
 
 // Package environment implements functions for managing Cloud Shell.
-package environment // import "go.astrophena.me/cloudshell/internal/environment"
+package environment // import "github.com/astrophena/cloudshell/internal/environment"
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 
-	"go.astrophena.me/cloudshell/internal/auth"
+	"github.com/astrophena/cloudshell/internal/auth"
 
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
 )

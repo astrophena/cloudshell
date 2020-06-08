@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE.md file.
 
 // Package config handles configuration management.
-package config // import "go.astrophena.me/cloudshell/internal/config"
+package config // import "github.com/astrophena/cloudshell/internal/config"
 
 import (
 	"errors"

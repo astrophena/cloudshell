@@ -12,7 +12,7 @@ cloudshell is the [Google Cloud Shell](https://cloud.google.com/shell/) CLI, wri
 
     * Install with `go get`:
 
-           $ pushd $(mktemp -d); go mod init tmp; go get go.astrophena.me/cloudshell; popd
+           $ pushd $(mktemp -d); go mod init tmp; go get github.com/astrophena/cloudshell; popd
 
       `go get` puts binaries by default to `$GOPATH/bin` (e.g.
       `~/go/bin`).

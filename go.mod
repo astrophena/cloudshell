@@ -1,4 +1,4 @@
-module go.astrophena.me/cloudshell
+module github.com/astrophena/cloudshell
 
 go 1.14
 

@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE.md file.
 
 // Package auth handles authentication with the Google APIs.
-package auth // import "go.astrophena.me/cloudshell/internal/auth"
+package auth // import "github.com/astrophena/cloudshell/internal/auth"
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"net/http"
 	"os"
 
-	"go.astrophena.me/cloudshell/internal/config"
+	"github.com/astrophena/cloudshell/internal/config"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
