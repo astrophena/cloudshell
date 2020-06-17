@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/astrophena/gen v0.3.4
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
+	github.com/fatih/color v1.9.0
 	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/olekukonko/tablewriter v0.0.4

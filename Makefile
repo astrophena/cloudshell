@@ -15,7 +15,7 @@ LDFLAGS = "-s -w -X main.Version=$(VERSION) -buildid="
 .PHONY: build dist install clean help
 
 build: ## Build
-	@ go build -o $(BIN) -trimpath -ldflags=$(LDFLAGS)
+	@ CGO_ENABLED=0 go build -o $(BIN) -trimpath -ldflags=$(LDFLAGS)
 
 dist: ## Build with GoReleaser
 	@ goreleaser --snapshot --skip-publish
