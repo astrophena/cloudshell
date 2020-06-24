@@ -57,7 +57,14 @@ func main() {
 				Name:    "connect",
 				Aliases: []string{"c"},
 				Usage:   "Establish an interactive SSH session with Cloud Shell",
-				Action:  cmdConnect,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "fwd",
+						Aliases: []string{"f"},
+						Usage:   "Forward local port to remote port: [local]:[remote]",
+					},
+				},
+				Action: cmdConnect,
 			},
 			{
 				Name:    "info",
@@ -162,9 +169,11 @@ func cmdConnect(c *cli.Context) (err error) {
 
 	const msg = "Cloud Shell is starting.\nRun \"cloudshell connect\" again in a minute or two."
 
+	fwd := c.String("fwd")
+
 	switch e.State {
 	case "RUNNING":
-		if err := connectToEnvironment(e, s); err != nil {
+		if err := connectToEnvironment(e, s, fwd); err != nil {
 			return err
 		}
 	case "STARTING":
@@ -467,7 +476,7 @@ func startEnvironment(e *cloudshell.Environment, s *cloudshell.Service) (err err
 	return nil
 }
 
-func connectToEnvironment(e *cloudshell.Environment, s *cloudshell.Service) (err error) {
+func connectToEnvironment(e *cloudshell.Environment, s *cloudshell.Service, fwd string) (err error) {
 	host := e.SshUsername + "@" + e.SshHost
 	port := strconv.FormatInt(e.SshPort, 10)
 
@@ -477,6 +486,10 @@ func connectToEnvironment(e *cloudshell.Environment, s *cloudshell.Service) (err
 	}
 
 	cmd := exec.Command(path, host, "-p", port, "-o", "StrictHostKeyChecking=no")
+
+	if fwd != "" {
+		cmd.Args = append(cmd.Args, "-L", fwd)
+	}
 
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
