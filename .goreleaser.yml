@@ -18,7 +18,7 @@ nfpms:
   - package_name: cloudshell
     vendor: Ilya Mateyko
     homepage: https://github.com/astrophena/cloudshell
-    maintainer: Ilya Mateyko <me@astrophena.me>
+    maintainer: Ilya Mateyko <astrophena@gmail.com>
     description: Google Cloud Shell CLI.
     license: MIT
     formats:
