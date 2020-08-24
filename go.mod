@@ -3,7 +3,7 @@ module github.com/astrophena/cloudshell
 go 1.14
 
 require (
-	github.com/astrophena/gen v0.3.4
+	github.com/astrophena/gen v0.3.5
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/fatih/color v1.9.0
 	github.com/mattn/go-runewidth v0.0.9 // indirect
