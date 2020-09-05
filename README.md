@@ -1,12 +1,16 @@
-# `cloudshell`
+<div align="center">
+  <h1>cloudshell</h1>
+</div>
 
-> **Work in Progress**: `cloudshell` is not finished and has many rough edges.
+cloudshell gives you access to the [Google Cloud Shell](https://cloud.google.com/shell/)
+from your terminal.
 
-cloudshell is the [Google Cloud Shell](https://cloud.google.com/shell/) CLI, written in Go.
+It's like [gcloud alpha cloud-shell](https://cloud.google.com/sdk/gcloud/reference/alpha/cloud-shell),
+but simpler and packed into a single binary.
 
 ## Installation
 
-1. [Install Go](https://golang.org/dl) 1.14 if you haven't yet.
+1. [Install Go](https://golang.org/dl) 1.15 if you haven't yet.
 
 2. Two installation options are supported:
 

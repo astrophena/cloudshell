@@ -1,6 +1,6 @@
 module github.com/astrophena/cloudshell
 
-go 1.14
+go 1.15
 
 require (
 	github.com/astrophena/gen v0.3.5
