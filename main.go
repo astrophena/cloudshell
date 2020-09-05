@@ -104,7 +104,7 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		log.Fatal(err)
+		color.Red(err.Error())
 	}
 }
 
@@ -188,7 +188,6 @@ func cmdConnect(c *cli.Context) (err error) {
 	return nil
 }
 
-// cmdKeyList implements the "key list" command.
 func cmdKeyList(c *cli.Context) (err error) {
 	s, err := authService()
 	if err != nil {
@@ -383,7 +382,7 @@ func token(config *oauth2.Config) (*oauth2.Token, error) {
 
 	tok, err := config.Exchange(context.TODO(), authCode)
 	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve OAuth token: %w", err)
+		return nil, fmt.Errorf("unable to retrieve token: %w", err)
 	}
 
 	return tok, nil
