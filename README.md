@@ -16,7 +16,7 @@ but simpler and packed into a single binary.
 
     * Install with `go get`:
 
-           $ pushd $(mktemp -d); go mod init tmp; go get github.com/astrophena/cloudshell; popd
+           $ pushd $(mktemp -d); go mod init tmp; go get go.astrophena.name/cloudshell; popd
 
       `go get` puts binaries by default to `$GOPATH/bin` (e.g.
       `~/go/bin`).

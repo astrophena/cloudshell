@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE.md file.
 
 // cloudshell is the Google Cloud Shell CLI.
-package main // import "github.com/astrophena/cloudshell"
+package main // import "go.astrophena.name/cloudshell"
 
 import (
 	"context"
