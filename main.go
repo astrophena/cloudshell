@@ -20,10 +20,10 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/astrophena/gen/pkg/fileutil"
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
+	"go.astrophena.name/gen/pkg/fileutil"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
