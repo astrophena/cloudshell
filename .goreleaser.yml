@@ -29,5 +29,3 @@ checksum:
 snapshot:
   # Keep this synced with Makefile.
   name_template: "{{ .Tag }}-next"
-changelog:
-  skip: true
