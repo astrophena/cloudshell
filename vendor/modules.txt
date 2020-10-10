@@ -1,8 +1,5 @@
 # cloud.google.com/go v0.65.0
 cloud.google.com/go/compute/metadata
-# github.com/astrophena/gen v0.3.5
-## explicit
-github.com/astrophena/gen/pkg/fileutil
 # github.com/cpuguy83/go-md2man/v2 v2.0.0
 ## explicit
 github.com/cpuguy83/go-md2man/v2/md2man
@@ -36,6 +33,9 @@ github.com/shurcooL/sanitized_anchor_name
 # github.com/urfave/cli/v2 v2.2.0
 ## explicit
 github.com/urfave/cli/v2
+# go.astrophena.name/gen v0.4.0
+## explicit
+go.astrophena.name/gen/pkg/fileutil
 # go.opencensus.io v0.22.4
 go.opencensus.io
 go.opencensus.io/internal

@@ -4,7 +4,7 @@
 
 // Package fileutil provides helper functions
 // for working with files and directories.
-package fileutil // import "github.com/astrophena/gen/pkg/fileutil"
+package fileutil // import "go.astrophena.name/gen/pkg/fileutil"
 
 import (
 	"io"
