@@ -33,7 +33,7 @@ github.com/shurcooL/sanitized_anchor_name
 # github.com/urfave/cli/v2 v2.2.0
 ## explicit
 github.com/urfave/cli/v2
-# go.astrophena.name/gen v0.4.0
+# go.astrophena.name/gen v0.4.1
 ## explicit
 go.astrophena.name/gen/pkg/fileutil
 # go.opencensus.io v0.22.4
