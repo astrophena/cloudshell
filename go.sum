@@ -149,8 +149,8 @@ github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
-go.astrophena.name/gen v0.4.0 h1:btW0EkmyBFfLL4ClWE5bxR3JhsGeZUFHy053bEkubWU=
-go.astrophena.name/gen v0.4.0/go.mod h1:Gki+eiWs0kn6188dCjxqPvfphaVR6mYEPmPoP4E7dxw=
+go.astrophena.name/gen v0.4.1 h1:kWFlSYVrn3XFxY5HzDQ7wrT1XvsczCmRtunq313jEc8=
+go.astrophena.name/gen v0.4.1/go.mod h1:Gki+eiWs0kn6188dCjxqPvfphaVR6mYEPmPoP4E7dxw=
 go.opencensus.io v0.21.0 h1:mU6zScU4U1YAFPHEHYk+3JC4SY7JxgkqS10ZOSyksNg=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.0/go.mod h1:+kGneAE2xo2IficOXnaByMWTGM9T73dGwxeWcUqIpI8=
