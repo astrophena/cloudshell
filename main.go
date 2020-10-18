@@ -88,7 +88,15 @@ func main() {
 						Name:    "list",
 						Aliases: []string{"l"},
 						Usage:   "List public keys associated with the Cloud Shell",
-						Action:  cmdKeyList,
+						Flags: []cli.Flag{
+							&cli.StringFlag{
+								Name:    "format",
+								Aliases: []string{"f"},
+								Usage:   "Output format (table, text and json supported)",
+								Value:   "table",
+							},
+						},
+						Action: cmdKeyList,
 					},
 					{
 						Name:      "add",
@@ -189,6 +197,8 @@ func cmdConnect(c *cli.Context) (err error) {
 }
 
 func cmdKeyList(c *cli.Context) (err error) {
+	format := c.String("format")
+
 	s, err := authService()
 	if err != nil {
 		return err
@@ -204,16 +214,34 @@ func cmdKeyList(c *cli.Context) (err error) {
 		return err
 	}
 
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"ID", "Type"})
-	table.SetBorder(false)
+	switch format {
+	case "table":
+		table := tablewriter.NewWriter(os.Stdout)
+		table.SetHeader([]string{"ID", "Type"})
+		table.SetBorder(false)
 
-	for _, pk := range e.PublicKeys {
-		id := strings.Split(pk.Name, "/")
-		table.Append([]string{id[5], pk.Format})
+		for _, pk := range e.PublicKeys {
+			id := strings.Split(pk.Name, "/")
+			table.Append([]string{id[5], pk.Format})
+		}
+
+		table.Render()
+	// Currently, text only prints key IDs for convinient processing
+	// with, in example, xargs.
+	case "text":
+		for _, pk := range e.PublicKeys {
+			id := strings.Split(pk.Name, "/")
+			fmt.Println(id[5])
+		}
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(e.PublicKeys); err != nil {
+			return err
+		}
+	default:
+		return errors.New("unsupported format")
 	}
-
-	table.Render()
 
 	return nil
 }
