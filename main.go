@@ -19,6 +19,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
@@ -31,6 +32,11 @@ import (
 )
 
 const defaultVersion = "devel"
+
+var (
+	delayTimeout = 2 * time.Second
+	pollTimeout  = 5 * time.Second
+)
 
 var Version = defaultVersion
 
@@ -167,22 +173,16 @@ func cmdConnect(c *cli.Context) (err error) {
 		return err
 	}
 
-	const msg = "Cloud Shell is starting.\nRun \"cloudshell connect\" again in a minute or two."
-
 	fwd := c.String("fwd")
 
-	switch e.State {
-	case "RUNNING":
-		if err := connectToEnvironment(e, s, fwd); err != nil {
-			return err
-		}
-	case "STARTING":
-		log.Println(msg)
-	case "DISABLED":
+	if e.State == "STARTING" || e.State == "DISABLED" {
 		if err := startEnvironment(e, s); err != nil {
 			return err
 		}
-		log.Println(msg)
+	}
+
+	if err := connectToEnvironment(e, s, fwd); err != nil {
+		return err
 	}
 
 	return nil
@@ -472,10 +472,28 @@ func startEnvironment(e *cloudshell.Environment, s *cloudshell.Service) (err err
 		return err
 	}
 
+	for {
+		e, err = s.Users.Environments.Get(e.Name).Do()
+		if err != nil {
+			return err
+		}
+		if e.State == "RUNNING" {
+			time.Sleep(delayTimeout)
+			break
+		} else {
+			time.Sleep(pollTimeout)
+		}
+	}
+
 	return nil
 }
 
 func connectToEnvironment(e *cloudshell.Environment, s *cloudshell.Service, fwd string) (err error) {
+	if e.SshHost == "" || e.SshUsername == "" {
+		// This should never happen, but anyway…
+		return errors.New("ssh host or username is empty, probably environment is not started")
+	}
+
 	host := e.SshUsername + "@" + e.SshHost
 	port := strconv.FormatInt(e.SshPort, 10)
 
