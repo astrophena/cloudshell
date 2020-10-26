@@ -10,5 +10,5 @@ require (
 	github.com/urfave/cli/v2 v2.2.0
 	go.astrophena.name/gen v0.4.1
 	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
-	google.golang.org/api v0.33.0
+	google.golang.org/api v0.34.0
 )
