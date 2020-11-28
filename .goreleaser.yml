@@ -5,6 +5,7 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
     # Keep these synced with Makefile.
@@ -18,7 +19,7 @@ nfpms:
   - package_name: cloudshell
     vendor: Ilya Mateyko
     homepage: https://github.com/astrophena/cloudshell
-    maintainer: Ilya Mateyko <astrophena@gmail.com>
+    maintainer: Ilya Mateyko <me@astrophena.name>
     description: Google Cloud Shell CLI.
     license: MIT
     formats:
