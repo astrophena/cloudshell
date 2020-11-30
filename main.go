@@ -33,7 +33,7 @@ import (
 
 const defaultVersion = "devel"
 
-var (
+const (
 	delayTimeout = 2 * time.Second
 	pollTimeout  = 5 * time.Second
 )
