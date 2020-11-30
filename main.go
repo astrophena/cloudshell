@@ -34,8 +34,8 @@ import (
 const defaultVersion = "devel"
 
 const (
-	delayTimeout = 2 * time.Second
-	pollTimeout  = 5 * time.Second
+	delayInterval = 2 * time.Second
+	pollInterval  = 5 * time.Second
 )
 
 var Version = defaultVersion
@@ -506,10 +506,10 @@ func startEnvironment(e *cloudshell.Environment, s *cloudshell.Service) (err err
 			return err
 		}
 		if e.State == "RUNNING" {
-			time.Sleep(delayTimeout)
+			time.Sleep(delayInterval)
 			break
 		} else {
-			time.Sleep(pollTimeout)
+			time.Sleep(pollInterval)
 		}
 	}
 
