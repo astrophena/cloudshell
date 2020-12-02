@@ -189,6 +189,11 @@ func cmdConnect(c *cli.Context) (err error) {
 		}
 	}
 
+	e, err = s.Users.Environments.Get(n).Do()
+	if err != nil {
+		return err
+	}
+
 	if err := connectToEnvironment(e, s, fwd); err != nil {
 		return err
 	}
