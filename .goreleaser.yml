@@ -20,7 +20,7 @@ nfpms:
     vendor: Ilya Mateyko
     homepage: https://github.com/astrophena/cloudshell
     maintainer: Ilya Mateyko <me@astrophena.name>
-    description: Google Cloud Shell CLI.
+    description: Connect to Google Cloud Shell from the terminal.
     license: MIT
     formats:
       - deb
