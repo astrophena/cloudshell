@@ -345,7 +345,8 @@ loop:
 		case <-ticker.C:
 			continue
 		case <-interrupt:
-			break loop
+			log.Println("exiting")
+			os.Exit(0)
 		}
 	}
 
