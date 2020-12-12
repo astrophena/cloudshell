@@ -1,9 +1,5 @@
 #!/usr/bin/env bash
 
-# © 2019 Ilya Mateyko. All rights reserved.
-# Use of this source code is governed by the MIT
-# license that can be found in the LICENSE.md file.
-
 _cloudshell() {
   if [[ "${COMP_WORDS[0]}" != "source" ]]; then
     local cur opts base

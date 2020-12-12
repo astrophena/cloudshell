@@ -2,7 +2,7 @@
   <h1>cloudshell</h1>
 </div>
 
-`cloudshell` gives you access to the [Google Cloud Shell] from your terminal.
+`cloudshell` gives access to the [Google Cloud Shell] from the terminal.
 
 ## Installation
 

@@ -1,4 +1,4 @@
-// cloudshell is the Google Cloud Shell CLI.
+// Command cloudshell gives access to the Google Cloud Shell from the terminal.
 package main // import "go.astrophena.name/cloudshell"
 
 import (
