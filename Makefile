@@ -1,31 +1,21 @@
-# © 2020 Ilya Mateyko. All rights reserved.
-# Use of this source code is governed by the MIT
-# license that can be found in the LICENSE.md file.
+GOOS ?= $(shell go env GOOS)
+GOARCH ?= $(shell go env GOARCH)
+LDFLAGS = "-s -w -X main.Version=$(VERSION) -buildid="
 
-PREFIX  ?= $(HOME)
 VERSION ?= $(shell git describe --abbrev=0 --tags | cut -c 2-)-next
-
-BIN     = cloudshell
-BINDIR  = $(PREFIX)/bin
 
 DISTDIR = ./dist
 
-LDFLAGS = "-s -w -X main.Version=$(VERSION) -buildid="
-
-.PHONY: build dist install clean help
+.PHONY: build clean dist help
 
 build: ## Build
-	@ CGO_ENABLED=0 go build -o $(BIN) -trimpath -ldflags=$(LDFLAGS)
+	@ GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -trimpath -ldflags=$(LDFLAGS)
+
+clean: ## Clean
+	@ go clean
 
 dist: ## Build with GoReleaser
 	@ goreleaser --snapshot --skip-publish
-
-install: build ## Install
-	@ mkdir -m755 -p $(BINDIR) && \
-		install -m755 $(BIN) $(BINDIR)
-
-clean: ## Clean
-	@ rm -rf $(BIN) $(DISTDIR)
 
 help: ## Show help
 	@ grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \

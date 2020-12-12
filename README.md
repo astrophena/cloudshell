@@ -2,38 +2,26 @@
   <h1>cloudshell</h1>
 </div>
 
-cloudshell gives you access to the [Google Cloud Shell](https://cloud.google.com/shell/)
-from your terminal.
-
-It's like [gcloud alpha cloud-shell](https://cloud.google.com/sdk/gcloud/reference/alpha/cloud-shell),
-but simpler and packed into a single binary.
+`cloudshell` gives you access to the [Google Cloud Shell] from your terminal.
 
 ## Installation
 
-1. [Install Go](https://golang.org/dl) 1.15 if you haven't yet.
+### From binary
 
-2. Two installation options are supported:
+Download the precompiled binary from [releases page].
 
-    * Install with `go get`:
+### From source
 
-           $ pushd $(mktemp -d); go mod init tmp; go get go.astrophena.name/cloudshell; popd
+1. Install the latest version of [Go] if you haven't yet.
 
-      `go get` puts binaries by default to `$GOPATH/bin` (e.g.
-      `~/go/bin`).
+2. Install with `go get`:
 
-      Use `GOBIN` environment variable to change this behavior.
+        $ pushd $(mktemp -d); go mod init tmp; go get go.astrophena.name/cloudshell; popd
 
-    * Install with `make`:
+   `go get` puts binaries by default to `$GOPATH/bin` (e.g.
+   `~/go/bin`).
 
-           $ git clone https://github.com/astrophena/cloudshell
-           $ cd cloudshell
-           $ make install
-
-        `make install` installs `cloudshell`  by default to `$HOME/bin`.
-
-        Use `PREFIX` environment variable to change this behavior:
-
-           $ make install PREFIX="$HOME/.local" # Installs to $HOME/.local/bin.
+   Use `GOBIN` environment variable to change this behavior.
 
 ## Setup
 
@@ -49,3 +37,7 @@ but simpler and packed into a single binary.
 ## License
 
 [MIT](LICENSE.md) © Ilya Mateyko
+
+[Google Cloud Shell]: https://cloud.google.com/shell/
+[releases page]: https://github.com/astrophena/cloudshell/releases
+[Go]: https://golang.org/dl

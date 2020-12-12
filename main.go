@@ -1,7 +1,3 @@
-// © 2019 Ilya Mateyko. All rights reserved.
-// Use of this source code is governed by the MIT
-// license that can be found in the LICENSE.md file.
-
 // cloudshell is the Google Cloud Shell CLI.
 package main // import "go.astrophena.name/cloudshell"
 
@@ -15,41 +11,33 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
-	"go.astrophena.name/gen/pkg/fileutil"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
 	userinfo "google.golang.org/api/oauth2/v2"
+	"google.golang.org/api/option"
 )
 
-const defaultVersion = "devel"
+// Version is the version of cloudshell.
+var Version = "devel"
 
-const (
-	delayInterval = 2 * time.Second
-	pollInterval  = 5 * time.Second
-)
-
-var Version = defaultVersion
-
-func init() {
-	if Version == defaultVersion {
+func main() {
+	if Version == "devel" {
 		bi, ok := debug.ReadBuildInfo()
 		if ok {
 			Version = strings.TrimPrefix(bi.Main.Version, "v")
 		}
 	}
-}
 
-func main() {
 	log.SetFlags(0)
 
 	app := &cli.App{
@@ -92,7 +80,7 @@ func main() {
 							&cli.StringFlag{
 								Name:    "format",
 								Aliases: []string{"f"},
-								Usage:   "Output format (table, text and json supported)",
+								Usage:   "Output format (text, table or json)",
 								Value:   "table",
 							},
 						},
@@ -109,7 +97,7 @@ func main() {
 						Name:      "delete",
 						Aliases:   []string{"d"},
 						Usage:     "Remove a public SSH key from the Cloud Shell",
-						ArgsUsage: "[key id]",
+						ArgsUsage: "[id]",
 						Action:    cmdKeyDelete,
 					},
 				},
@@ -118,17 +106,21 @@ func main() {
 	}
 
 	if err := app.Run(os.Args); err != nil {
-		color.Red(err.Error())
+		log.Fatal(err)
 	}
 }
 
-func cmdInfo(c *cli.Context) (err error) {
-	s, err := authService()
+//
+// Commands
+//
+
+func cmdInfo(c *cli.Context) error {
+	s, err := service()
 	if err != nil {
 		return err
 	}
 
-	n, err := environmentName()
+	n, err := name()
 	if err != nil {
 		return err
 	}
@@ -138,40 +130,31 @@ func cmdInfo(c *cli.Context) (err error) {
 		return err
 	}
 
-	switch e.State {
-	case "RUNNING":
-		color.Green("Environment is running.")
-	case "DISABLED":
-		color.Red("Environment is stopped.")
-	case "DELETING":
-		color.Red("Environment is deleting.")
-	case "STARTING":
-		color.Blue("Environment is starting.")
-	default:
-		color.Yellow("Environment in an unknown state.")
-	}
+	state := strings.ToLower(e.State)
+	state = strings.Title(state) + "."
+	fmt.Println(state)
 
 	fmt.Printf("Docker Image: %s\n", e.DockerImage)
 
 	if e.SshHost != "" && e.SshPort != 0 && e.SshUsername != "" {
-		color.Blue("SSH connection details:")
+		fmt.Println("SSH connection details:")
 		fmt.Printf("  Host:     %s\n", e.SshHost)
 		fmt.Printf("  Port:     %d\n", e.SshPort)
 		fmt.Printf("  Username: %s\n", e.SshUsername)
 	} else {
-		color.Red("SSH is unavaliable.")
+		fmt.Println("SSH is unavaliable.")
 	}
 
 	return nil
 }
 
-func cmdConnect(c *cli.Context) (err error) {
-	s, err := authService()
+func cmdConnect(c *cli.Context) error {
+	s, err := service()
 	if err != nil {
 		return err
 	}
 
-	n, err := environmentName()
+	n, err := name()
 	if err != nil {
 		return err
 	}
@@ -181,10 +164,8 @@ func cmdConnect(c *cli.Context) (err error) {
 		return err
 	}
 
-	fwd := c.String("fwd")
-
 	if e.State == "STARTING" || e.State == "DISABLED" {
-		if err := startEnvironment(e, s); err != nil {
+		if err := start(e, s); err != nil {
 			return err
 		}
 	}
@@ -194,22 +175,16 @@ func cmdConnect(c *cli.Context) (err error) {
 		return err
 	}
 
-	if err := connectToEnvironment(e, s, fwd); err != nil {
-		return err
-	}
-
-	return nil
+	return ssh(e, s, c.String("fwd"))
 }
 
-func cmdKeyList(c *cli.Context) (err error) {
-	format := c.String("format")
-
-	s, err := authService()
+func cmdKeyList(c *cli.Context) error {
+	s, err := service()
 	if err != nil {
 		return err
 	}
 
-	n, err := environmentName()
+	n, err := name()
 	if err != nil {
 		return err
 	}
@@ -219,7 +194,7 @@ func cmdKeyList(c *cli.Context) (err error) {
 		return err
 	}
 
-	switch format {
+	switch c.String("format") {
 	case "table":
 		table := tablewriter.NewWriter(os.Stdout)
 		table.SetHeader([]string{"ID", "Type"})
@@ -231,8 +206,6 @@ func cmdKeyList(c *cli.Context) (err error) {
 		}
 
 		table.Render()
-	// Currently, text only prints key IDs for convinient processing
-	// with, in example, xargs.
 	case "text":
 		for _, pk := range e.PublicKeys {
 			id := strings.Split(pk.Name, "/")
@@ -244,53 +217,40 @@ func cmdKeyList(c *cli.Context) (err error) {
 		if err := enc.Encode(e.PublicKeys); err != nil {
 			return err
 		}
-	default:
-		return errors.New("unsupported format")
 	}
 
-	return nil
+	return errors.New("unsupported format")
 }
 
-func cmdKeyAdd(c *cli.Context) (err error) {
+func cmdKeyAdd(c *cli.Context) error {
 	key := c.Args().Get(0)
 
 	if key == "" {
-		return errors.New("key add: key is required")
+		return errors.New("key is required")
 	}
 
-	ks := strings.Split(key, " ")
+	fk := strings.Split(key, " ")
 
-	// See https://cloud.google.com/shell/docs/reference/rest/Shared.Types/Format
-	// for supported key types.
-	var kf string
-	switch ks[0] {
-	case "ssh-dss":
-		kf = "SSH_DSS"
-	case "ssh-rsa":
-		kf = "SSH_RSA"
-	case "ecdsa-sha2-nistp256":
-		kf = "ECDSA_SHA2_NISTP256"
-	case "ecdsa-sha2-nistp384":
-		kf = "ECDSA_SHA2_NISTP384"
-	case "ecdsa-sha2-nistp521":
-		kf = "ECDSA_SHA2_NISTP521"
-	default:
-		return errors.New("key add: format is unsupported")
+	if len(fk) < 2 {
+		return errors.New("key is invalid")
 	}
 
-	s, err := authService()
-	if err != nil {
-		return err
-	}
+	kf := strings.ReplaceAll(fk[0], "-", "_")
+	kf = strings.ToUpper(kf)
 
 	r := &cloudshell.CreatePublicKeyRequest{
 		Key: &cloudshell.PublicKey{
 			Format: kf,
-			Key:    ks[1],
+			Key:    fk[1],
 		},
 	}
 
-	n, err := environmentName()
+	n, err := name()
+	if err != nil {
+		return err
+	}
+
+	s, err := service()
 	if err != nil {
 		return err
 	}
@@ -303,18 +263,18 @@ func cmdKeyAdd(c *cli.Context) (err error) {
 	return nil
 }
 
-func cmdKeyDelete(c *cli.Context) (err error) {
+func cmdKeyDelete(c *cli.Context) error {
 	id := c.Args().Get(0)
 	if id == "" {
-		return errors.New("key delete: key id is required")
+		return errors.New("key id is required")
 	}
 
-	n, err := environmentName()
+	n, err := name()
 	if err != nil {
 		return err
 	}
 
-	s, err := authService()
+	s, err := service()
 	if err != nil {
 		return err
 	}
@@ -328,203 +288,73 @@ func cmdKeyDelete(c *cli.Context) (err error) {
 	return nil
 }
 
-func authService() (service *cloudshell.Service, err error) {
-	c, err := client()
-	if err != nil {
-		return nil, err
-	}
+//
+// Helper functions
+//
 
-	service, err = cloudshell.New(c)
-	if err != nil {
-		return nil, err
-	}
-
-	return service, nil
-}
-
-func email() (email string, err error) {
+func name() (string, error) {
 	c, err := client()
 	if err != nil {
 		return "", err
 	}
 
-	s, err := userinfo.New(c)
+	s, err := userinfo.NewService(context.Background(), option.WithHTTPClient(c))
 	if err != nil {
 		return "", err
 	}
 
-	ti, err := s.Tokeninfo().Do()
+	info, err := s.Tokeninfo().Do()
 	if err != nil {
 		return "", err
 	}
 
-	if ti.Email == "" {
-		return "", errors.New("auth: no email present in the token info")
+	if info.Email == "" {
+		return "", errors.New("no email present in token info")
 	}
-	email = ti.Email
 
-	return email, nil
+	return fmt.Sprintf("users/%s/environments/default", info.Email), nil
 }
 
-func client() (*http.Client, error) {
-	path, err := clientSecretsFile()
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("auth: unable to read client secrets file: %w", err)
-	}
-
-	scopes := cloudshell.CloudPlatformScope + " email"
-	cfg, err := google.ConfigFromJSON(b, scopes)
-	if err != nil {
-		return nil, fmt.Errorf("auth: unable to parse client secrets file: %w", err)
-	}
-
-	credsFile, err := credsFile()
-	if err != nil {
-		return nil, err
-	}
-
-	tok, err := tokenFromFile(credsFile)
-	if err != nil {
-		tok, err = token(cfg)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := saveToken(credsFile, tok); err != nil {
-			return nil, err
-		}
-	}
-
-	return cfg.Client(context.Background(), tok), nil
-}
-
-func token(config *oauth2.Config) (*oauth2.Token, error) {
-	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Printf("Go to the following link in your browser then type the "+
-		"authorization code: %v\n", authURL)
-
-	var authCode string
-	if _, err := fmt.Scan(&authCode); err != nil {
-		return nil, fmt.Errorf("unable to read authorization code: %w", err)
-	}
-
-	tok, err := config.Exchange(context.TODO(), authCode)
-	if err != nil {
-		return nil, fmt.Errorf("unable to retrieve token: %w", err)
-	}
-
-	return tok, nil
-}
-
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	tok := &oauth2.Token{}
-
-	return tok, json.NewDecoder(f).Decode(tok)
-}
-
-func saveToken(path string, token *oauth2.Token) error {
-	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
-	if err != nil {
-		return fmt.Errorf("unable to cache OAuth token: %w", err)
-	}
-	defer f.Close()
-
-	json.NewEncoder(f).Encode(token)
-
-	return nil
-}
-
-func configDir() (string, error) {
-	ucd, err := os.UserConfigDir()
-	if err != nil {
-		return "", err
-	}
-
-	dir := filepath.Join(ucd, "cloudshell")
-
-	if !fileutil.Exists(dir) {
-		if err := fileutil.Mkdir(dir); err != nil {
-			return "", err
-		}
-	}
-
-	return dir, nil
-}
-
-func clientSecretsFile() (string, error) {
-	dir, err := configDir()
-	if err != nil {
-		return "", err
-	}
-
-	path := filepath.Join(dir, "client_secrets.json")
-
-	if !fileutil.Exists(path) {
-		return "", fmt.Errorf(
-			"client_secrets.json is missing in %v.\nSee https://github.com/astrophena/cloudshell#setup for setup instructions.",
-			dir,
-		)
-	}
-
-	return path, nil
-}
-
-func credsFile() (string, error) {
-	dir, err := configDir()
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(dir, "creds.json"), nil
-}
-
-func environmentName() (name string, err error) {
-	email, err := email()
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("users/%s/environments/default", email), nil
-}
-
-func startEnvironment(e *cloudshell.Environment, s *cloudshell.Service) (err error) {
+func start(e *cloudshell.Environment, s *cloudshell.Service) error {
 	r := &cloudshell.StartEnvironmentRequest{}
 
 	if _, err := s.Users.Environments.Start(e.Name, r).Do(); err != nil {
 		return err
 	}
 
+	log.Println("Environment is starting…")
+
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+loop:
 	for {
-		e, err = s.Users.Environments.Get(e.Name).Do()
+		e, err := s.Users.Environments.Get(e.Name).Do()
 		if err != nil {
 			return err
 		}
+
 		if e.State == "RUNNING" {
-			time.Sleep(delayInterval)
-			break
-		} else {
-			time.Sleep(pollInterval)
+			break loop
+		}
+
+		select {
+		case <-ticker.C:
+			continue
+		case <-interrupt:
+			break loop
 		}
 	}
 
 	return nil
 }
 
-func connectToEnvironment(e *cloudshell.Environment, s *cloudshell.Service, fwd string) (err error) {
-	if e.SshHost == "" || e.SshUsername == "" {
-		// This should never happen, but anyway…
-		return errors.New("ssh host or username is empty, probably environment is not started")
+func ssh(e *cloudshell.Environment, s *cloudshell.Service, fwd string) error {
+	if e.SshHost == "" || e.SshPort == 0 || e.SshUsername == "" {
+		return errors.New("ssh is unavaliable")
 	}
 
 	host := e.SshUsername + "@" + e.SshHost
@@ -551,3 +381,126 @@ func connectToEnvironment(e *cloudshell.Environment, s *cloudshell.Service, fwd 
 
 	return nil
 }
+
+//
+// Authentication
+//
+
+func service() (*cloudshell.Service, error) {
+	c, err := client()
+	if err != nil {
+		return nil, err
+	}
+
+	return cloudshell.NewService(context.Background(), option.WithHTTPClient(c))
+}
+
+func client() (*http.Client, error) {
+	dir, err := configDir()
+	if err != nil {
+		return nil, err
+	}
+
+	path, err := clientSecretsFile(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read client secrets file: %w", err)
+	}
+
+	cfg, err := google.ConfigFromJSON(b, cloudshell.CloudPlatformScope+" email")
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse client secrets file: %w", err)
+	}
+
+	cf := credsFile(dir)
+
+	tok, err := tokenFromFile(cf)
+	if err != nil {
+		tok, err = token(cfg)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := saveToken(cf, tok); err != nil {
+			return nil, err
+		}
+	}
+
+	return cfg.Client(context.Background(), tok), nil
+}
+
+func token(config *oauth2.Config) (*oauth2.Token, error) {
+	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+	fmt.Printf("Go to the following link in your browser then type the "+
+		"authorization code: %v\n", authURL)
+
+	var authCode string
+	if _, err := fmt.Scan(&authCode); err != nil {
+		return nil, fmt.Errorf("unable to read authorization code: %w", err)
+	}
+
+	tok, err := config.Exchange(context.Background(), authCode)
+	if err != nil {
+		return nil, fmt.Errorf("unable to retrieve token: %w", err)
+	}
+
+	return tok, nil
+}
+
+func tokenFromFile(path string) (*oauth2.Token, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var tok oauth2.Token
+
+	return &tok, json.NewDecoder(f).Decode(&tok)
+}
+
+func saveToken(path string, token *oauth2.Token) error {
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return json.NewEncoder(f).Encode(token)
+}
+
+func configDir() (string, error) {
+	ucd, err := os.UserConfigDir()
+	if err != nil {
+		return "", err
+	}
+
+	dir := filepath.Join(ucd, "cloudshell")
+
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			return "", err
+		}
+	}
+
+	return dir, nil
+}
+
+func clientSecretsFile(dir string) (string, error) {
+	path := filepath.Join(dir, "client_secrets.json")
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return "", fmt.Errorf(
+			"client_secrets.json is missing in %v.\nSee https://github.com/astrophena/cloudshell#setup for setup instructions.",
+			dir,
+		)
+	}
+
+	return path, nil
+}
+
+func credsFile(dir string) string { return filepath.Join(dir, "creds.json") }
