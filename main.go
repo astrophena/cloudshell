@@ -206,17 +206,21 @@ func cmdKeyList(c *cli.Context) error {
 		}
 
 		table.Render()
+
+		return nil
 	case "text":
 		for _, pk := range e.PublicKeys {
 			id := strings.Split(pk.Name, "/")
 			fmt.Println(id[5])
 		}
+		return nil
 	case "json":
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(e.PublicKeys); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	return errors.New("unsupported format")
