@@ -326,7 +326,7 @@ func start(e *cloudshell.Environment, s *cloudshell.Service) error {
 		return err
 	}
 
-	log.Println("Environment is starting…")
+	log.Println("Environment is starting...")
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
