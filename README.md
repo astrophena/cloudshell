@@ -14,11 +14,11 @@ Download the precompiled binary from [releases page].
 
 1. Install the latest version of [Go] if you haven't yet.
 
-2. Install with `go get`:
+2. Install with `go install`:
 
-        $ pushd $(mktemp -d); go mod init tmp; go get go.astrophena.name/cloudshell; popd
+        $ go install go.astrophena.name/cloudshell@latest
 
-   `go get` puts binaries by default to `$GOPATH/bin` (e.g.
+   `go install` puts binaries by default to `$GOPATH/bin` (e.g.
    `~/go/bin`).
 
    Use `GOBIN` environment variable to change this behavior.
