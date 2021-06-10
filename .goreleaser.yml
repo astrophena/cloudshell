@@ -23,7 +23,14 @@ nfpms:
     description: Connect to Google Cloud Shell from the terminal.
     license: MIT
     formats:
+      - apk
       - deb
+      - rpm
+    contents:
+      - src: bash_autocomplete
+        dst: /usr/share/bash-completion/completions/cloudshell
+      - src: zsh_autocomplete
+        dst: /usr/share/zsh/vendor-completions/_cloudshell
     bindir: /usr/bin
 checksum:
   name_template: 'checksums.txt'
