@@ -17,23 +17,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
-	cloudshell "google.golang.org/api/cloudshell/v1alpha1"
-	userinfo "google.golang.org/api/oauth2/v2"
+	cloudshell "google.golang.org/api/cloudshell/v1"
 	"google.golang.org/api/option"
 )
 
-// Version is the version of cloudshell.
-var Version = "devel"
+const envName = "users/me/environments/default"
+
+var version = "devel"
 
 func main() {
-	if Version == "devel" {
+	if version == "devel" {
 		bi, ok := debug.ReadBuildInfo()
 		if ok {
-			Version = strings.TrimPrefix(bi.Main.Version, "v")
+			version = strings.TrimPrefix(bi.Main.Version, "v")
 		}
 	}
 
@@ -41,9 +40,9 @@ func main() {
 
 	app := &cli.App{
 		Name:                 "cloudshell",
-		Usage:                "Manage Google Cloud Shell.",
+		Usage:                "Connect to Google Cloud Shell from the terminal.",
 		EnableBashCompletion: true,
-		Version:              Version,
+		Version:              version,
 		HideHelpCommand:      true,
 		Commands: []*cli.Command{
 			{
@@ -51,6 +50,11 @@ func main() {
 				Aliases: []string{"c"},
 				Usage:   "Establish an interactive SSH session with Cloud Shell",
 				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:    "key",
+						Aliases: []string{"k"},
+						Usage:   "Path to the SSH key that should be used for authentication.",
+					},
 					&cli.StringFlag{
 						Name:    "fwd",
 						Aliases: []string{"f"},
@@ -75,15 +79,7 @@ func main() {
 						Name:    "list",
 						Aliases: []string{"l"},
 						Usage:   "List public keys associated with the Cloud Shell",
-						Flags: []cli.Flag{
-							&cli.StringFlag{
-								Name:    "format",
-								Aliases: []string{"f"},
-								Usage:   "Output format (text, table or json)",
-								Value:   "table",
-							},
-						},
-						Action: cmdKeyList,
+						Action:  cmdKeyList,
 					},
 					{
 						Name:      "add",
@@ -93,11 +89,11 @@ func main() {
 						Action:    cmdKeyAdd,
 					},
 					{
-						Name:      "delete",
-						Aliases:   []string{"d"},
+						Name:      "remove",
+						Aliases:   []string{"r"},
 						Usage:     "Remove a public SSH key from the Cloud Shell",
-						ArgsUsage: "[id]",
-						Action:    cmdKeyDelete,
+						ArgsUsage: "[key]",
+						Action:    cmdKeyRemove,
 					},
 				},
 			},
@@ -109,22 +105,13 @@ func main() {
 	}
 }
 
-//
-// Commands
-//
-
 func cmdInfo(c *cli.Context) error {
 	s, err := service()
 	if err != nil {
 		return err
 	}
 
-	n, err := name()
-	if err != nil {
-		return err
-	}
-
-	e, err := s.Users.Environments.Get(n).Do()
+	e, err := s.Users.Environments.Get(envName).Do()
 	if err != nil {
 		return err
 	}
@@ -153,28 +140,23 @@ func cmdConnect(c *cli.Context) error {
 		return err
 	}
 
-	n, err := name()
+	e, err := s.Users.Environments.Get(envName).Do()
 	if err != nil {
 		return err
 	}
 
-	e, err := s.Users.Environments.Get(n).Do()
-	if err != nil {
-		return err
-	}
-
-	if e.State == "STARTING" || e.State == "DISABLED" {
+	if e.State == "STARTING" || e.State == "SUSPENDED" {
 		if err := start(e, s); err != nil {
 			return err
 		}
 	}
 
-	e, err = s.Users.Environments.Get(n).Do()
+	e, err = s.Users.Environments.Get(envName).Do()
 	if err != nil {
 		return err
 	}
 
-	return ssh(e, s, c.String("fwd"))
+	return ssh(e, s, c.String("key"), c.String("fwd"))
 }
 
 func cmdKeyList(c *cli.Context) error {
@@ -183,82 +165,30 @@ func cmdKeyList(c *cli.Context) error {
 		return err
 	}
 
-	n, err := name()
+	e, err := s.Users.Environments.Get(envName).Do()
 	if err != nil {
 		return err
 	}
 
-	e, err := s.Users.Environments.Get(n).Do()
-	if err != nil {
-		return err
+	for _, k := range e.PublicKeys {
+		log.Println(k)
 	}
 
-	switch c.String("format") {
-	case "table":
-		table := tablewriter.NewWriter(os.Stdout)
-		table.SetHeader([]string{"ID", "Type"})
-		table.SetBorder(false)
-
-		for _, pk := range e.PublicKeys {
-			id := strings.Split(pk.Name, "/")
-			table.Append([]string{id[5], pk.Format})
-		}
-
-		table.Render()
-
-		return nil
-	case "text":
-		for _, pk := range e.PublicKeys {
-			id := strings.Split(pk.Name, "/")
-			fmt.Println(id[5])
-		}
-		return nil
-	case "json":
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		if err := enc.Encode(e.PublicKeys); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	return errors.New("unsupported format")
+	return nil
 }
 
 func cmdKeyAdd(c *cli.Context) error {
 	key := c.Args().Get(0)
-
 	if key == "" {
 		return errors.New("key is required")
 	}
 
-	fk := strings.Split(key, " ")
-
-	if len(fk) < 2 {
-		return errors.New("key is invalid")
-	}
-
-	kf := strings.ReplaceAll(fk[0], "-", "_")
-	kf = strings.ToUpper(kf)
-
-	r := &cloudshell.CreatePublicKeyRequest{
-		Key: &cloudshell.PublicKey{
-			Format: kf,
-			Key:    fk[1],
-		},
-	}
-
-	n, err := name()
-	if err != nil {
-		return err
-	}
-
 	s, err := service()
 	if err != nil {
 		return err
 	}
 
-	_, err = s.Users.Environments.PublicKeys.Create(n, r).Do()
+	_, err = s.Users.Environments.AddPublicKey(envName, &cloudshell.AddPublicKeyRequest{Key: key}).Do()
 	if err != nil {
 		return err
 	}
@@ -266,15 +196,10 @@ func cmdKeyAdd(c *cli.Context) error {
 	return nil
 }
 
-func cmdKeyDelete(c *cli.Context) error {
-	id := c.Args().Get(0)
-	if id == "" {
-		return errors.New("key id is required")
-	}
-
-	n, err := name()
-	if err != nil {
-		return err
+func cmdKeyRemove(c *cli.Context) error {
+	key := c.Args().Get(0)
+	if key == "" {
+		return errors.New("key is required")
 	}
 
 	s, err := service()
@@ -282,46 +207,15 @@ func cmdKeyDelete(c *cli.Context) error {
 		return err
 	}
 
-	if _, err := s.Users.Environments.PublicKeys.Delete(
-		fmt.Sprintf("%s/publicKeys/%s", n, id),
-	).Do(); err != nil {
+	if _, err := s.Users.Environments.RemovePublicKey(envName, &cloudshell.RemovePublicKeyRequest{Key: key}).Do(); err != nil {
 		return err
 	}
 
 	return nil
-}
-
-//
-// Helper functions
-//
-
-func name() (string, error) {
-	c, err := client()
-	if err != nil {
-		return "", err
-	}
-
-	s, err := userinfo.NewService(context.Background(), option.WithHTTPClient(c))
-	if err != nil {
-		return "", err
-	}
-
-	info, err := s.Tokeninfo().Do()
-	if err != nil {
-		return "", err
-	}
-
-	if info.Email == "" {
-		return "", errors.New("no email present in token info")
-	}
-
-	return fmt.Sprintf("users/%s/environments/default", info.Email), nil
 }
 
 func start(e *cloudshell.Environment, s *cloudshell.Service) error {
-	r := &cloudshell.StartEnvironmentRequest{}
-
-	if _, err := s.Users.Environments.Start(e.Name, r).Do(); err != nil {
+	if _, err := s.Users.Environments.Start(e.Name, &cloudshell.StartEnvironmentRequest{}).Do(); err != nil {
 		return err
 	}
 
@@ -356,7 +250,7 @@ loop:
 	return nil
 }
 
-func ssh(e *cloudshell.Environment, s *cloudshell.Service, fwd string) error {
+func ssh(e *cloudshell.Environment, s *cloudshell.Service, key, fwd string) error {
 	if e.SshHost == "" || e.SshPort == 0 || e.SshUsername == "" {
 		return errors.New("ssh is unavaliable")
 	}
@@ -371,6 +265,9 @@ func ssh(e *cloudshell.Environment, s *cloudshell.Service, fwd string) error {
 
 	cmd := exec.Command(path, host, "-p", port, "-o", "StrictHostKeyChecking=no")
 
+	if key != "" {
+		cmd.Args = append(cmd.Args, "-i", key)
+	}
 	if fwd != "" {
 		cmd.Args = append(cmd.Args, "-L", fwd)
 	}
@@ -385,10 +282,6 @@ func ssh(e *cloudshell.Environment, s *cloudshell.Service, fwd string) error {
 
 	return nil
 }
-
-//
-// Authentication
-//
 
 func service() (*cloudshell.Service, error) {
 	c, err := client()
