@@ -60,7 +60,7 @@ func (a *app) Run(ctx context.Context) error {
 	clientSecret, err := os.ReadFile(filepath.Join(a.stateDir, "client_secret.json"))
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("client_secret.json is missing in %s, see https://github.com/astrophena/cloudshell#setup for setup instructions", a.stateDir)
+			return fmt.Errorf("client_secret.json is missing in %s, see https://go.astrophena.name/cloudshell#hdr-Setup for setup instructions", a.stateDir)
 		}
 		return err
 	}
