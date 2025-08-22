@@ -1,3 +1,7 @@
+// © 2025 Ilya Mateyko. All rights reserved.
+// Use of this source code is governed by the ISC
+// license that can be found in the LICENSE.md file.
+
 package main
 
 import (
@@ -12,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"go.astrophena.name/base/cli"
 	"go.astrophena.name/base/logger"
@@ -157,7 +162,7 @@ func (a *app) info() error {
 	}
 
 	state := strings.ToLower(env.State)
-	state = strings.Title(state) + "."
+	state = lowercaseFirst(state) + "."
 	a.logf(state)
 
 	a.logf("Docker image: %s", env.DockerImage)
@@ -172,6 +177,15 @@ func (a *app) info() error {
 	}
 
 	return nil
+}
+
+func lowercaseFirst(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	runes := []rune(s)
+	runes[0] = unicode.ToLower(runes[0])
+	return string(runes)
 }
 
 func (a *app) ssh(ctx context.Context) error {

@@ -1,0 +1,25 @@
+-- copyright/template.go --
+// © %d Ilya Mateyko. All rights reserved.
+// Use of this source code is governed by the ISC
+// license that can be found in the LICENSE.md file.
+
+-- copyright/header.go --
+// ©
+-- pre-commit.json --
+[
+  {
+    "run": ["gofmt", "-d"]
+  },
+  {
+    "run": ["go", "tool", "staticcheck", "./..."]
+  },
+  {
+    "run": ["go", "test", "./..."]
+  },
+  {
+    "run": ["go", "mod", "tidy", "--diff"]
+  },
+  {
+    "run": ["go", "tool", "addcopyright", "-check"]
+  }
+]
