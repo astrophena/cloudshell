@@ -12,7 +12,7 @@ builds:
     flags:
       - -trimpath
     ldflags:
-      - -s -w -X main.version={{.Version}} -buildid=
+      - -s -w -buildid=
 archives:
   - format: binary
 nfpms:
@@ -21,16 +21,11 @@ nfpms:
     homepage: https://github.com/astrophena/cloudshell
     maintainer: Ilya Mateyko <me@astrophena.name>
     description: Connect to Google Cloud Shell from the terminal.
-    license: MIT
+    license: ISC
     formats:
       - apk
       - deb
       - rpm
-    contents:
-      - src: bash_autocomplete
-        dst: /usr/share/bash-completion/completions/cloudshell
-      - src: zsh_autocomplete
-        dst: /usr/share/zsh/vendor-completions/_cloudshell
     bindir: /usr/bin
 checksum:
   name_template: 'checksums.txt'

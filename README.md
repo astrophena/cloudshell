@@ -1,6 +1,4 @@
-<div align="center">
-  <h1>cloudshell</h1>
-</div>
+# `cloudshell`
 
 `cloudshell` gives access to the [Google Cloud Shell] from the terminal.
 
@@ -36,7 +34,7 @@ Download the precompiled binary from [releases page].
 
 ## License
 
-[MIT](LICENSE.md) © Ilya Mateyko
+[ISC](LICENSE.md) © Ilya Mateyko
 
 [Google Cloud Shell]: https://cloud.google.com/shell/
 [releases page]: https://github.com/astrophena/cloudshell/releases
