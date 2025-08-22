@@ -2,6 +2,8 @@
 
 `cloudshell` gives access to the [Google Cloud Shell] from the terminal.
 
+See https://go.astrophena.name/cloudshell for documentation.
+
 ## Installation
 
 ### From binary
@@ -20,17 +22,6 @@ Download the precompiled binary from [releases page].
    `~/go/bin`).
 
    Use `GOBIN` environment variable to change this behavior.
-
-## Setup
-
-* Create a project in the Google API Console.
-* Enable the Cloud Shell API.
-* Create credentials, download and place them to:
-  * `$XDG_CONFIG_HOME/cloudshell/client_secrets.json` (Linux)
-  * `$HOME/Library/Application Support/cloudshell/client_secrets.json` (macOS)
-* Run any command (e.g. `cloudshell info`) to authenticate.
-* Add your SSH key by running `cloudshell key add`.
-* Try to connect: `cloudshell connect`.
 
 ## License
 
