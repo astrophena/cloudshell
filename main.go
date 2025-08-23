@@ -6,16 +6,21 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"encoding/json"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
-	"os/exec"
+	"os/signal"
 	"path/filepath"
-	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"unicode"
 
@@ -23,15 +28,18 @@ import (
 	"go.astrophena.name/base/logger"
 	"go.astrophena.name/base/request"
 
+	"golang.org/x/crypto/ssh"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"golang.org/x/term"
 )
 
 func main() { cli.Main(new(app)) }
 
 type app struct {
 	// configuration
-	stateDir string
+	stateDir       string
+	privateKeyPath string // Path to the managed private SSH key.
 
 	// initialized by Run
 	httpc       *http.Client
@@ -55,6 +63,10 @@ func (a *app) Run(ctx context.Context) error {
 	a.stateDir = filepath.Join(xdgStateDir, "cloudshell")
 	if err := os.MkdirAll(a.stateDir, 0o700); err != nil {
 		return err
+	}
+
+	if err := a.ensureSSHKey(); err != nil {
+		return fmt.Errorf("failed to ensure SSH key: %w", err)
 	}
 
 	clientSecret, err := os.ReadFile(filepath.Join(a.stateDir, "client_secret.json"))
@@ -114,6 +126,47 @@ func (a *app) Run(ctx context.Context) error {
 	}
 }
 
+// ensureSSHKey checks for the existence of an RSA key pair in the state directory.
+// If it doesn't exist, it generates a new 4096-bit RSA key pair.
+func (a *app) ensureSSHKey() error {
+	a.privateKeyPath = filepath.Join(a.stateDir, "key")
+	publicKeyPath := filepath.Join(a.stateDir, "key.pub")
+
+	if _, err := os.Stat(a.privateKeyPath); err == nil {
+		return nil
+	}
+
+	a.logf("Generating a new SSH key pair for Cloud Shell...")
+
+	// Generate private key.
+	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return fmt.Errorf("failed to generate RSA key: %w", err)
+	}
+
+	// Encode private key to PEM format.
+	privateKeyPEM := &pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
+	}
+	if err := os.WriteFile(a.privateKeyPath, pem.EncodeToMemory(privateKeyPEM), 0o600); err != nil {
+		return fmt.Errorf("failed to write private key: %w", err)
+	}
+
+	// Generate and write public key in OpenSSH format.
+	pub, err := ssh.NewPublicKey(&privateKey.PublicKey)
+	if err != nil {
+		return fmt.Errorf("failed to create public key: %w", err)
+	}
+	publicKeyBytes := ssh.MarshalAuthorizedKey(pub)
+	if err := os.WriteFile(publicKeyPath, publicKeyBytes, 0o644); err != nil {
+		return fmt.Errorf("failed to write public key: %w", err)
+	}
+
+	a.logf("Key pair saved to %s and %s.", a.privateKeyPath, publicKeyPath)
+	return nil
+}
+
 func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 	env := cli.GetEnv(ctx)
 
@@ -151,23 +204,13 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 }
 
 type environment struct {
-	// Full path to the Docker image used to run this environment, e.g. "gcr.io/dev-con/cloud-devshell:latest".
-	DockerImage string `json:"dockerImage"`
-
-	// Output only:
-
-	// Current execution state of this environment.
-	State string `json:"state"`
-	// Host to which clients can connect to initiate HTTPS or WSS connections with the environment.
-	WebHost string `json:"webHost"`
-	// Username that clients should use when initiating SSH sessions with the environment.
-	SSHUsername string `json:"sshUsername"`
-	// Host to which clients can connect to initiate SSH sessions with the environment.
-	SSHHost string `json:"sshHost"`
-	// Port to which clients can connect to initiate SSH sessions with the environment.
-	SSHPort int `json:"sshPort"`
-	// Public keys associated with the environment.
-	PublicKeys []string `json:"publicKeys"`
+	DockerImage string   `json:"dockerImage"`
+	State       string   `json:"state"`
+	WebHost     string   `json:"webHost"`
+	SSHUsername string   `json:"sshUsername"`
+	SSHHost     string   `json:"sshHost"`
+	SSHPort     int      `json:"sshPort"`
+	PublicKeys  []string `json:"publicKeys"`
 }
 
 func (a *app) getEnvironment(ctx context.Context) (environment, error) {
@@ -218,45 +261,45 @@ func uppercaseFirst(s string) string {
 }
 
 func (a *app) ssh(ctx context.Context) error {
+	if err := a.start(ctx); err != nil {
+		return err
+	}
 	env, err := a.getEnvironment(ctx)
 	if err != nil {
 		return err
 	}
-
-	if env.State != "RUNNING" {
-		if err := a.start(ctx); err != nil {
-			return err
-		}
-		env, err = a.getEnvironment(ctx)
-		if err != nil {
-			return err
-		}
-	}
-
-	return a.sshExec(env)
+	return a.sshExec(ctx, env)
 }
 
 func (a *app) start(ctx context.Context) error {
-	if _, err := makeRequest[request.IgnoreResponse](ctx, a.httpc, http.MethodPost, ":start", struct{}{}); err != nil {
+	publicKeyPath := filepath.Join(a.stateDir, "key.pub")
+	pubKeyBytes, err := os.ReadFile(publicKeyPath)
+	if err != nil {
+		return fmt.Errorf("could not read managed public key: %w", err)
+	}
+	type startRequest struct {
+		PublicKeys []string `json:"publicKeys"`
+	}
+	req := startRequest{
+		// Cloud Shell API returns Internal Server Error when SSH public key has a
+		// newline in the end. So trim it.
+		PublicKeys: []string{strings.TrimSuffix(string(pubKeyBytes), "\n")},
+	}
+	if _, err := makeRequest[request.IgnoreResponse](ctx, a.httpc, http.MethodPost, ":start", req); err != nil {
 		return err
 	}
-
 	a.logf("Environment is starting...")
-
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
-
 	for {
 		e, err := a.getEnvironment(ctx)
 		if err != nil {
 			return err
 		}
-
 		if e.State == "RUNNING" {
 			a.logf("Environment has started.")
 			return nil
 		}
-
 		select {
 		case <-ticker.C:
 			continue
@@ -266,19 +309,103 @@ func (a *app) start(ctx context.Context) error {
 	}
 }
 
-func (a *app) sshExec(e environment) error {
+// sshExec establishes an interactive SSH session using the native Go SSH client.
+func (a *app) sshExec(ctx context.Context, e environment) error {
+	env := cli.GetEnv(ctx)
+
 	if e.SSHHost == "" || e.SSHPort == 0 || e.SSHUsername == "" {
-		return errors.New("ssh is unavailable")
+		return errors.New("connection with SSH is unavailable")
 	}
 
-	host := e.SSHUsername + "@" + e.SSHHost
-	port := strconv.FormatInt(int64(e.SSHPort), 10)
+	// Read and parse the private key for authentication.
+	key, err := os.ReadFile(a.privateKeyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read private key: %w", err)
+	}
+	signer, err := ssh.ParsePrivateKey(key)
+	if err != nil {
+		return fmt.Errorf("failed to parse private key: %w", err)
+	}
 
-	cmd := exec.Command("ssh", host, "-p", port, "-o", "StrictHostKeyChecking=no")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
+	config := &ssh.ClientConfig{
+		User: e.SSHUsername,
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeys(signer),
+		},
+		// Equivalent to "-o StrictHostKeyChecking=no". This is safe because
+		// the host is provided by the trusted Google Cloud API.
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+
+	addr := net.JoinHostPort(e.SSHHost, fmt.Sprintf("%d", e.SSHPort))
+	client, err := ssh.Dial("tcp", addr, config)
+	if err != nil {
+		return fmt.Errorf("failed to dial: %w", err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	defer session.Close()
+
+	// Set up an interactive terminal.
+	// Get the file descriptor for the standard input.
+	fd := int(os.Stdin.Fd())
+	// Check if we are running in a terminal.
+	if !term.IsTerminal(fd) {
+		return errors.New("standard input is not a terminal, cannot start interactive ssh session")
+	}
+
+	// Put the local terminal into "raw mode". This is crucial for passing
+	// control characters (like Ctrl+C) to the remote shell.
+	oldState, err := term.MakeRaw(fd)
+	if err != nil {
+		return fmt.Errorf("failed to set terminal to raw mode: %w", err)
+	}
+	// Restore the terminal state when we're done.
+	defer term.Restore(fd, oldState)
+
+	// Get the terminal dimensions.
+	width, height, err := term.GetSize(fd)
+	if err != nil {
+		return fmt.Errorf("failed to get terminal size: %w", err)
+	}
+
+	// Request a pseudo-terminal (PTY) from the remote server.
+	// "xterm-256color" is a common and safe terminal type to request.
+	if err := session.RequestPty("xterm-256color", height, width, ssh.TerminalModes{}); err != nil {
+		return fmt.Errorf("failed to request pty: %w", err)
+	}
+
+	// Handle terminal resizing.
+	// Create a channel to receive window change signals.
+	winch := make(chan os.Signal, 1)
+	signal.Notify(winch, syscall.SIGWINCH)
+	go func() {
+		for range winch {
+			w, h, err := term.GetSize(fd)
+			if err != nil {
+				continue
+			}
+			// Send a "window-change" request to the remote server.
+			session.WindowChange(h, w)
+		}
+	}()
+
+	// Connect local I/O to the remote session.
+	session.Stdout = env.Stdout
+	session.Stderr = env.Stderr
+	session.Stdin = env.Stdin
+
+	if err := session.Shell(); err != nil {
+		return fmt.Errorf("failed to start shell: %w", err)
+	}
+
+	// Wait for the session to finish. The error returned by Wait()
+	// is the exit status of the remote command.
+	return session.Wait()
 }
 
 func (a *app) keyList(ctx context.Context) error {
@@ -286,16 +413,13 @@ func (a *app) keyList(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-
 	if len(e.PublicKeys) == 0 {
 		a.logf("No public keys found.")
 		return nil
 	}
-
 	for _, k := range e.PublicKeys {
 		a.logf(k)
 	}
-
 	return nil
 }
 

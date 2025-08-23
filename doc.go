@@ -16,7 +16,7 @@ Where <command> is one of the following:
   - ssh: Establish an SSH connection to the Cloud Shell environment. If the
     environment is not running, it will be started automatically.
   - start: Start the Cloud Shell environment and wait until it is running.
-  - key <subcommand>: Manage public SSH keys for the environment.
+  - key <subcommand>: Manage additional public SSH keys for the environment.
 
 Where key <subcommand> is one of the following:
 
@@ -49,12 +49,15 @@ state directory. This token will be used for all subsequent API requests.
 
 # SSH Key Management
 
-Before you can connect to your Cloud Shell environment using SSH, you must add
-your public SSH key. This can be done with the 'key add' command.
+The first time cloudshell is run, it automatically generates a dedicated RSA
+SSH key pair for connecting to the Cloud Shell environment. This key is stored
+in the state directory.
 
-Example:
+When you run cloudshell ssh or cloudshell start, the public key is
+automatically authorized with the environment.
 
-	$ cloudshell key add "$(cat ~/.ssh/id_rsa.pub)"
+The key command can still be used to manage additional, user-provided public
+keys if you have advanced use cases that require them.
 */
 package main
 
