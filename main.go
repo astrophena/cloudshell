@@ -413,6 +413,7 @@ func (a *app) sshExec(ctx context.Context, e environment) error {
 }
 
 func (a *app) keyList(ctx context.Context) error {
+	env := cli.GetEnv(ctx)
 	e, err := a.getEnvironment(ctx)
 	if err != nil {
 		return err
@@ -422,7 +423,7 @@ func (a *app) keyList(ctx context.Context) error {
 		return nil
 	}
 	for _, k := range e.PublicKeys {
-		a.logf(k)
+		fmt.Fprintf(env.Stdout, "%s\n", k)
 	}
 	return nil
 }
