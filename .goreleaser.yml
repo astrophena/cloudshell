@@ -1,3 +1,4 @@
+version: 2
 project_name: cloudshell
 builds:
   - env:
@@ -14,7 +15,7 @@ builds:
     ldflags:
       - -s -w -buildid=
 archives:
-  - format: binary
+  - formats: [binary]
 nfpms:
   - package_name: cloudshell
     vendor: Ilya Mateyko
@@ -31,4 +32,4 @@ checksum:
   name_template: 'checksums.txt'
 snapshot:
   # Keep this synced with Makefile.
-  name_template: "{{ .Tag }}-next"
+  version_template: "{{ .Tag }}-next"
