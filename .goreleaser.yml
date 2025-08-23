@@ -1,35 +1,34 @@
 version: 2
-project_name: cloudshell
+project_name: 'cloudshell'
 builds:
   - env:
-      - CGO_ENABLED=0
+      - 'CGO_ENABLED=0'
     goos:
-      - linux
-      - darwin
-      - windows
+      - 'linux'
+      - 'darwin'
+      - 'windows'
     goarch:
-      - amd64
-    # Keep these synced with Makefile.
+      - 'amd64'
+      - 'arm64'
     flags:
-      - -trimpath
+      - '-trimpath'
     ldflags:
-      - -s -w -buildid=
+      - '-s -w -buildid='
 archives:
-  - formats: [binary]
+  - formats: ['binary']
 nfpms:
-  - package_name: cloudshell
-    vendor: Ilya Mateyko
-    homepage: https://github.com/astrophena/cloudshell
-    maintainer: Ilya Mateyko <me@astrophena.name>
-    description: Connect to Google Cloud Shell from the terminal.
-    license: ISC
+  - package_name: 'cloudshell'
+    vendor: 'Ilya Mateyko'
+    homepage: 'https://github.com/astrophena/cloudshell'
+    maintainer: 'Ilya Mateyko <me@astrophena.name>'
+    description: 'Connect to Google Cloud Shell from the terminal.'
+    license: 'ISC'
     formats:
-      - apk
-      - deb
-      - rpm
-    bindir: /usr/bin
+      - 'apk'
+      - 'deb'
+      - 'rpm'
+    bindir: '/usr/bin'
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  # Keep this synced with Makefile.
-  version_template: "{{ .Tag }}-next"
+  version_template: '{{ .Tag }}-next'
