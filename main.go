@@ -239,6 +239,10 @@ func (a *app) info(ctx context.Context) error {
 
 	a.logf("Docker image: %s", env.DockerImage)
 
+	if env.WebHost != "" {
+		a.logf("Web host: %s", env.WebHost)
+	}
+
 	if env.SSHHost != "" && env.SSHPort != 0 && env.SSHUsername != "" {
 		a.logf("SSH connection details:")
 		a.logf("  Host:     %s", env.SSHHost)
