@@ -17,8 +17,10 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -39,12 +41,13 @@ func main() { cli.Main(new(app)) }
 type app struct {
 	// configuration
 	stateDir       string
-	privateKeyPath string // Path to the managed private SSH key.
+	privateKeyPath string // path to the managed private SSH key
 
 	// initialized by Run
 	httpc       *http.Client
 	logf        logger.Logf
 	oauthConfig *oauth2.Config
+	authed      bool
 }
 
 func (a *app) Run(ctx context.Context) error {
@@ -64,27 +67,6 @@ func (a *app) Run(ctx context.Context) error {
 	if err := os.MkdirAll(a.stateDir, 0o700); err != nil {
 		return err
 	}
-
-	if err := a.ensureSSHKey(); err != nil {
-		return fmt.Errorf("failed to ensure SSH key: %w", err)
-	}
-
-	clientSecret, err := os.ReadFile(filepath.Join(a.stateDir, "client_secret.json"))
-	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("client_secret.json is missing in %s, see https://go.astrophena.name/cloudshell#hdr-Setup for setup instructions", a.stateDir)
-		}
-		return err
-	}
-	a.oauthConfig, err = google.ConfigFromJSON(clientSecret, "https://www.googleapis.com/auth/cloud-platform")
-	if err != nil {
-		return err
-	}
-	tok, err := a.getToken(ctx)
-	if err != nil {
-		return err
-	}
-	a.httpc = a.oauthConfig.Client(ctx, tok)
 
 	if len(env.Args) == 0 {
 		return fmt.Errorf("%w: command is required, see -help for usage", cli.ErrInvalidArgs)
@@ -180,13 +162,76 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 		}
 	}
 
-	authURL := a.oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
-	fmt.Fprintf(env.Stderr, "Go to the following link in your browser then type the authorization code: %v\n", authURL)
-
-	var authCode string
-	if _, err := fmt.Fscan(env.Stdin, &authCode); err != nil {
-		return nil, err
+	// Start a local server to listen for the OAuth callback.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return nil, fmt.Errorf("could not start local server: %w", err)
 	}
+	defer l.Close()
+	a.oauthConfig.RedirectURL = fmt.Sprintf("http://%s", l.Addr().String())
+
+	// Channel to receive the authorization code.
+	codeCh := make(chan string)
+	// Channel to signal server shutdown.
+	shutdownCh := make(chan struct{})
+
+	srv := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			code := r.URL.Query().Get("code")
+			if code == "" {
+				http.Error(w, "code not found", http.StatusBadRequest)
+				return
+			}
+			fmt.Fprintln(w, "Authentication successful! You can close this window now.")
+			codeCh <- code
+			// Signal server to shutdown.
+			shutdownCh <- struct{}{}
+		}),
+	}
+
+	// Start the server in a goroutine.
+	go func() {
+		if err := srv.Serve(l); err != http.ErrServerClosed {
+			a.logf("local server error: %v", err)
+		}
+	}()
+
+	// Shutdown the server gracefully when signaled.
+	go func() {
+		select {
+		case <-shutdownCh:
+			if err := srv.Shutdown(ctx); err != nil {
+				a.logf("local server shutdown error: %v", err)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}()
+
+	authURL := a.oauthConfig.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
+
+	// Try to open the browser automatically.
+	var opened bool
+	switch runtime.GOOS {
+	case "linux", "android":
+		if _, err := exec.LookPath("xdg-open"); err == nil {
+			if err := exec.Command("xdg-open", authURL).Start(); err == nil {
+				opened = true
+			}
+		}
+	case "darwin":
+		if _, err := exec.LookPath("open"); err == nil {
+			if err := exec.Command("open", authURL).Start(); err == nil {
+				opened = true
+			}
+		}
+	}
+
+	if !opened {
+		fmt.Fprintf(env.Stderr, "Go to the following link in your browser: %v\n", authURL)
+	}
+
+	authCode := <-codeCh
 
 	newtok, err := a.oauthConfig.Exchange(ctx, authCode)
 	if err != nil {
@@ -227,7 +272,37 @@ func makeRequest[Response any](ctx context.Context, httpc *http.Client, method, 
 	})
 }
 
+func (a *app) initClient(ctx context.Context) error {
+	if a.authed {
+		return nil
+	}
+
+	clientSecret, err := os.ReadFile(filepath.Join(a.stateDir, "client_secret.json"))
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("client_secret.json is missing in %s, see https://go.astrophena.name/cloudshell#hdr-Setup for setup instructions", a.stateDir)
+		}
+		return err
+	}
+	a.oauthConfig, err = google.ConfigFromJSON(clientSecret, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		return err
+	}
+	tok, err := a.getToken(ctx)
+	if err != nil {
+		return err
+	}
+	a.httpc = a.oauthConfig.Client(ctx, tok)
+	a.authed = true
+
+	return nil
+}
+
 func (a *app) info(ctx context.Context) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
+
 	env, err := a.getEnvironment(ctx)
 	if err != nil {
 		return err
@@ -265,6 +340,9 @@ func uppercaseFirst(s string) string {
 }
 
 func (a *app) ssh(ctx context.Context) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
 	if err := a.start(ctx); err != nil {
 		return err
 	}
@@ -276,6 +354,13 @@ func (a *app) ssh(ctx context.Context) error {
 }
 
 func (a *app) start(ctx context.Context) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
+	if err := a.ensureSSHKey(); err != nil {
+		return fmt.Errorf("failed to ensure SSH key: %w", err)
+	}
+
 	publicKeyPath := filepath.Join(a.stateDir, "key.pub")
 	pubKeyBytes, err := os.ReadFile(publicKeyPath)
 	if err != nil {
@@ -413,6 +498,10 @@ func (a *app) sshExec(ctx context.Context, e environment) error {
 }
 
 func (a *app) keyList(ctx context.Context) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
+
 	env := cli.GetEnv(ctx)
 	e, err := a.getEnvironment(ctx)
 	if err != nil {
@@ -429,6 +518,10 @@ func (a *app) keyList(ctx context.Context) error {
 }
 
 func (a *app) keyAdd(ctx context.Context, key string) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
+
 	if _, err := makeRequest[request.IgnoreResponse](ctx, a.httpc, http.MethodPost, ":addPublicKey", struct {
 		Key string `json:"key"`
 	}{
@@ -441,6 +534,10 @@ func (a *app) keyAdd(ctx context.Context, key string) error {
 }
 
 func (a *app) keyRemove(ctx context.Context, key string) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
+
 	if _, err := makeRequest[request.IgnoreResponse](ctx, a.httpc, http.MethodPost, ":removePublicKey", struct {
 		Key string `json:"key"`
 	}{
