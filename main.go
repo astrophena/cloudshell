@@ -53,21 +53,6 @@ type app struct {
 func (a *app) Run(ctx context.Context) error {
 	env := cli.GetEnv(ctx)
 
-	a.logf = env.Logf
-
-	xdgStateDir := env.Getenv("XDG_STATE_HOME")
-	if xdgStateDir == "" {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return err
-		}
-		xdgStateDir = filepath.Join(home, ".local", "state")
-	}
-	a.stateDir = filepath.Join(xdgStateDir, "cloudshell")
-	if err := os.MkdirAll(a.stateDir, 0o700); err != nil {
-		return err
-	}
-
 	if len(env.Args) == 0 {
 		return fmt.Errorf("%w: command is required, see -help for usage", cli.ErrInvalidArgs)
 	}
@@ -277,6 +262,23 @@ func makeRequest[Response any](ctx context.Context, httpc *http.Client, method, 
 func (a *app) initClient(ctx context.Context) error {
 	if a.authed {
 		return nil
+	}
+
+	env := cli.GetEnv(ctx)
+
+	a.logf = env.Logf
+
+	xdgStateDir := env.Getenv("XDG_STATE_HOME")
+	if xdgStateDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		xdgStateDir = filepath.Join(home, ".local", "state")
+	}
+	a.stateDir = filepath.Join(xdgStateDir, "cloudshell")
+	if err := os.MkdirAll(a.stateDir, 0o700); err != nil {
+		return err
 	}
 
 	clientSecret, err := os.ReadFile(filepath.Join(a.stateDir, "client_secret.json"))
