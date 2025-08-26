@@ -231,21 +231,23 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 		fmt.Fprintf(env.Stderr, "Go to the following link in your browser: %v\n", authURL)
 	}
 
-	authCode := <-codeCh
-
-	newtok, err := a.oauthConfig.Exchange(ctx, authCode)
-	if err != nil {
-		return nil, err
+	select {
+	case authCode := <-codeCh:
+		newtok, err := a.oauthConfig.Exchange(ctx, authCode)
+		if err != nil {
+			return nil, err
+		}
+		tokb, err = json.MarshalIndent(newtok, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(tokenFile, tokb, 0o600); err != nil {
+			return nil, err
+		}
+		return newtok, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	tokb, err = json.MarshalIndent(newtok, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	if err := os.WriteFile(tokenFile, tokb, 0o600); err != nil {
-		return nil, err
-	}
-
-	return newtok, nil
 }
 
 type environment struct {
