@@ -4,8 +4,8 @@ github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c h1:pxW6RcqyfI9/k
 github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
-go.astrophena.name/base v0.10.1-0.20250823095847-15311e6e6822 h1:cOaHwgbFzNsHkN4YjyPvBZn7Qsmf2FBTyO+LdEkL8+o=
-go.astrophena.name/base v0.10.1-0.20250823095847-15311e6e6822/go.mod h1:YFg5M1SwA6h4+JSZKAOQ4+fdaV8gX91z2P0eCwTQL8s=
+go.astrophena.name/base v0.11.0 h1:suHN1TczV0hJ/Qmwe1LnNF6yNgfYqqhUWn08LMFZF+k=
+go.astrophena.name/base v0.11.0/go.mod h1:YFg5M1SwA6h4+JSZKAOQ4+fdaV8gX91z2P0eCwTQL8s=
 golang.org/x/crypto v0.41.0 h1:WKYxWedPGCTVVl5+WHSSrOBT0O8lx32+zxmHxijgXp4=
 golang.org/x/crypto v0.41.0/go.mod h1:pO5AFd7FA68rFak7rOAGVuygIISepHftHnr8dr6+sUc=
 golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 h1:1P7xPZEwZMoBoz0Yze5Nx2/4pxj6nw9ZqHWXqP0iRgQ=
