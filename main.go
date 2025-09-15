@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -27,7 +28,6 @@ import (
 	"unicode"
 
 	"go.astrophena.name/base/cli"
-	"go.astrophena.name/base/logger"
 	"go.astrophena.name/base/request"
 
 	"golang.org/x/crypto/ssh"
@@ -43,11 +43,11 @@ type app struct {
 	stateDir       string
 	privateKeyPath string // path to the managed private SSH key
 
-	// initialized by Run
-	httpc       *http.Client
-	logf        logger.Logf
-	oauthConfig *oauth2.Config
+	// initialized by initClient
 	authed      bool
+	httpc       *http.Client
+	logf        func(format string, args ...any)
+	oauthConfig *oauth2.Config
 }
 
 func (a *app) Run(ctx context.Context) error {
@@ -266,7 +266,7 @@ func (a *app) initClient(ctx context.Context) error {
 
 	env := cli.GetEnv(ctx)
 
-	a.logf = env.Logf
+	a.logf = log.New(env.Stderr, "", 0).Printf
 
 	xdgStateDir := env.Getenv("XDG_STATE_HOME")
 	if xdgStateDir == "" {
