@@ -3,7 +3,7 @@ module go.astrophena.name/cloudshell
 go 1.25
 
 require (
-	go.astrophena.name/base v0.13.0
+	go.astrophena.name/base v0.14.0
 	golang.org/x/crypto v0.45.0
 	golang.org/x/oauth2 v0.33.0
 	golang.org/x/term v0.37.0
