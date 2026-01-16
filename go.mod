@@ -3,24 +3,23 @@ module go.astrophena.name/cloudshell
 go 1.25.1
 
 require (
-	go.astrophena.name/base v0.15.0
-	golang.org/x/crypto v0.46.0
+	go.astrophena.name/base v0.16.1
+	golang.org/x/crypto v0.47.0
 	golang.org/x/oauth2 v0.34.0
 	golang.org/x/term v0.39.0
 )
 
 require (
-	cloud.google.com/go/compute/metadata v0.8.0 // indirect
-	github.com/BurntSushi/toml v1.4.1-0.20240526193622-a339e1f7089c // indirect
+	cloud.google.com/go/compute/metadata v0.9.0 // indirect
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/go4org/hashtriemap v0.0.0-20251130024219-545ba229f689 // indirect
 	github.com/lmittmann/tint v1.1.2 // indirect
-	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
-	golang.org/x/mod v0.26.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
+	golang.org/x/exp/typeparams v0.0.0-20251219203646-944ab1f22d93 // indirect
+	golang.org/x/mod v0.31.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
-	golang.org/x/tools v0.35.0 // indirect
-	golang.org/x/tools/go/expect v0.1.1-deprecated // indirect
-	honnef.co/go/tools v0.6.0 // indirect
+	golang.org/x/tools v0.40.0 // indirect
+	honnef.co/go/tools v0.6.1 // indirect
 )
 
 tool (
