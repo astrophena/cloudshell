@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	go.astrophena.name/base v0.16.1
 	golang.org/x/crypto v0.47.0
-	golang.org/x/oauth2 v0.34.0
+	golang.org/x/oauth2 v0.35.0
 	golang.org/x/term v0.39.0
 )
 
