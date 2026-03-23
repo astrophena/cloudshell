@@ -12,7 +12,9 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
+	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -43,11 +45,21 @@ type app struct {
 	stateDir       string
 	privateKeyPath string // path to the managed private SSH key
 
+	jsonOutput   bool
+	profile      string
+	localForward string
+
 	// initialized by initClient
 	authed      bool
 	httpc       *http.Client
 	logf        func(format string, args ...any)
 	oauthConfig *oauth2.Config
+}
+
+func (a *app) Flags(fs *flag.FlagSet) {
+	fs.BoolVar(&a.jsonOutput, "json", false, "Output in JSON format.")
+	fs.StringVar(&a.profile, "profile", "default", "Profile to use.")
+	fs.StringVar(&a.localForward, "L", "", "Local port forwarding (e.g., 8080:localhost:8080).")
 }
 
 func (a *app) Run(ctx context.Context) error {
@@ -63,7 +75,7 @@ func (a *app) Run(ctx context.Context) error {
 	case "info":
 		return a.info(ctx)
 	case "ssh":
-		return a.ssh(ctx)
+		return a.ssh(ctx, args...)
 	case "start":
 		return a.start(ctx)
 	case "key":
@@ -137,7 +149,12 @@ func (a *app) ensureSSHKey() error {
 func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 	env := cli.GetEnv(ctx)
 
-	tokenFile := filepath.Join(a.stateDir, "token.json")
+	var tokenFile string
+	if a.profile == "default" || a.profile == "" {
+		tokenFile = filepath.Join(a.stateDir, "token.json")
+	} else {
+		tokenFile = filepath.Join(a.stateDir, "profiles", a.profile+".json")
+	}
 
 	tokb, err := os.ReadFile(tokenFile)
 	if err == nil {
@@ -226,6 +243,9 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 		if err != nil {
 			return nil, err
 		}
+		if err := os.MkdirAll(filepath.Dir(tokenFile), 0o700); err != nil {
+			return nil, err
+		}
 		if err := os.WriteFile(tokenFile, tokb, 0o600); err != nil {
 			return nil, err
 		}
@@ -312,6 +332,12 @@ func (a *app) info(ctx context.Context) error {
 		return err
 	}
 
+	if a.jsonOutput {
+		enc := json.NewEncoder(cli.GetEnv(ctx).Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(env)
+	}
+
 	state := strings.ToLower(env.State)
 	state = uppercaseFirst(state) + "."
 	a.logf(state)
@@ -343,7 +369,7 @@ func uppercaseFirst(s string) string {
 	return string(runes)
 }
 
-func (a *app) ssh(ctx context.Context) error {
+func (a *app) ssh(ctx context.Context, args ...string) error {
 	if err := a.initClient(ctx); err != nil {
 		return err
 	}
@@ -354,7 +380,7 @@ func (a *app) ssh(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return a.sshExec(ctx, env)
+	return a.sshExec(ctx, env, args...)
 }
 
 func (a *app) start(ctx context.Context) error {
@@ -402,13 +428,46 @@ func (a *app) start(ctx context.Context) error {
 	}
 }
 
-// sshExec establishes an interactive SSH session using the native Go SSH client.
-func (a *app) sshExec(ctx context.Context, e environment) error {
-	env := cli.GetEnv(ctx)
-
+func (a *app) sshExec(ctx context.Context, e environment, args ...string) error {
 	if e.SSHHost == "" || e.SSHPort == 0 || e.SSHUsername == "" {
 		return errors.New("connection with SSH is unavailable")
 	}
+
+	if sshBin, err := exec.LookPath("ssh"); err == nil {
+		return a.sshExecBinary(ctx, sshBin, e, args...)
+	}
+
+	return a.sshExecGo(ctx, e, args...)
+}
+
+func (a *app) sshExecBinary(ctx context.Context, sshBin string, e environment, args ...string) error {
+	env := cli.GetEnv(ctx)
+
+	cmdArgs := []string{
+		"-i", a.privateKeyPath,
+		"-p", fmt.Sprintf("%d", e.SSHPort),
+		"-o", "StrictHostKeyChecking=no",
+	}
+
+	if a.localForward != "" {
+		cmdArgs = append(cmdArgs, "-L", a.localForward)
+	}
+
+	target := fmt.Sprintf("%s@%s", e.SSHUsername, e.SSHHost)
+	cmdArgs = append(cmdArgs, target)
+	cmdArgs = append(cmdArgs, args...)
+
+	cmd := exec.CommandContext(ctx, sshBin, cmdArgs...)
+	cmd.Stdin = env.Stdin
+	cmd.Stdout = env.Stdout
+	cmd.Stderr = env.Stderr
+
+	return cmd.Run()
+}
+
+// sshExecGo establishes an interactive SSH session using the native Go SSH client.
+func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) error {
+	env := cli.GetEnv(ctx)
 
 	// Read and parse the private key for authentication.
 	key, err := os.ReadFile(a.privateKeyPath)
@@ -437,11 +496,24 @@ func (a *app) sshExec(ctx context.Context, e environment) error {
 	}
 	defer client.Close()
 
+	if a.localForward != "" {
+		// Start port forwarding in a goroutine
+		go a.startLocalForwardGo(client, a.localForward)
+	}
+
 	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("failed to create session: %w", err)
 	}
 	defer session.Close()
+
+	session.Stdout = env.Stdout
+	session.Stderr = env.Stderr
+	session.Stdin = env.Stdin
+
+	if len(args) > 0 {
+		return session.Run(strings.Join(args, " "))
+	}
 
 	// Set up an interactive terminal.
 	// Get the file descriptor for the standard input.
@@ -487,11 +559,6 @@ func (a *app) sshExec(ctx context.Context, e environment) error {
 		}
 	}()
 
-	// Connect local I/O to the remote session.
-	session.Stdout = env.Stdout
-	session.Stderr = env.Stderr
-	session.Stdin = env.Stdin
-
 	if err := session.Shell(); err != nil {
 		return fmt.Errorf("failed to start shell: %w", err)
 	}
@@ -499,6 +566,62 @@ func (a *app) sshExec(ctx context.Context, e environment) error {
 	// Wait for the session to finish. The error returned by Wait()
 	// is the exit status of the remote command.
 	return session.Wait()
+}
+
+func (a *app) startLocalForwardGo(client *ssh.Client, forward string) {
+	// Parse local forward string. Format is [bind_address:]port:host:hostport
+	parts := strings.Split(forward, ":")
+	var localAddr, remoteAddr string
+
+	if len(parts) == 3 {
+		localAddr = "localhost:" + parts[0]
+		remoteAddr = parts[1] + ":" + parts[2]
+	} else if len(parts) == 4 {
+		localAddr = parts[0] + ":" + parts[1]
+		remoteAddr = parts[2] + ":" + parts[3]
+	} else {
+		a.logf("Invalid local forward format: %s", forward)
+		return
+	}
+
+	l, err := net.Listen("tcp", localAddr)
+	if err != nil {
+		a.logf("Failed to listen for local forward on %s: %v", localAddr, err)
+		return
+	}
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			a.logf("Local forward accept error: %v", err)
+			continue
+		}
+		go a.handleLocalForwardConnGo(client, conn, remoteAddr)
+	}
+}
+
+func (a *app) handleLocalForwardConnGo(client *ssh.Client, localConn net.Conn, remoteAddr string) {
+	defer localConn.Close()
+
+	remoteConn, err := client.Dial("tcp", remoteAddr)
+	if err != nil {
+		a.logf("Local forward failed to connect to remote %s: %v", remoteAddr, err)
+		return
+	}
+	defer remoteConn.Close()
+
+	errc := make(chan error, 2)
+	go func() {
+		_, err := io.Copy(remoteConn, localConn)
+		errc <- err
+	}()
+	go func() {
+		_, err := io.Copy(localConn, remoteConn)
+		errc <- err
+	}()
+
+	<-errc
 }
 
 func (a *app) keyList(ctx context.Context) error {
@@ -511,6 +634,16 @@ func (a *app) keyList(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	if a.jsonOutput {
+		enc := json.NewEncoder(env.Stdout)
+		enc.SetIndent("", "  ")
+		if e.PublicKeys == nil {
+			e.PublicKeys = []string{}
+		}
+		return enc.Encode(e.PublicKeys)
+	}
+
 	if len(e.PublicKeys) == 0 {
 		a.logf("No public keys found.")
 		return nil
@@ -533,6 +666,12 @@ func (a *app) keyAdd(ctx context.Context, key string) error {
 	}); err != nil {
 		return err
 	}
+
+	if a.jsonOutput {
+		fmt.Fprintln(cli.GetEnv(ctx).Stdout, "{}")
+		return nil
+	}
+
 	a.logf("Public key added successfully.")
 	return nil
 }
@@ -549,6 +688,12 @@ func (a *app) keyRemove(ctx context.Context, key string) error {
 	}); err != nil {
 		return err
 	}
+
+	if a.jsonOutput {
+		fmt.Fprintln(cli.GetEnv(ctx).Stdout, "{}")
+		return nil
+	}
+
 	a.logf("Public key removed successfully.")
 	return nil
 }
