@@ -7,14 +7,15 @@ cloudshell gives access to the Google Cloud Shell from the terminal.
 
 # Usage
 
-	$ cloudshell <command>
+	$ cloudshell [flags] <command>
 
 Where <command> is one of the following:
 
   - info: Display the current status and details of the Cloud Shell environment,
     including the Docker image and SSH connection information.
-  - ssh: Establish an SSH connection to the Cloud Shell environment. If the
-    environment is not running, it will be started automatically.
+  - ssh [args...]: Establish an SSH connection to the Cloud Shell environment. If the
+    environment is not running, it will be started automatically. Any additional
+    arguments are passed directly to the SSH command (e.g. cloudshell ssh "ls /home").
   - start: Start the Cloud Shell environment and wait until it is running.
   - key <subcommand>: Manage additional public SSH keys for the environment.
 
@@ -24,6 +25,15 @@ Where key <subcommand> is one of the following:
   - key add '<key>': Add a new public key. The key should be provided as a
     string, e.g., "$(cat ~/.ssh/id_rsa.pub)".
   - key remove '<key>': Remove a previously authorized public key.
+
+Available flags include:
+
+  - -json: Output the result of the command in JSON format. Applicable to info
+    and key commands.
+  - -profile: The profile to use (default: "default"). Profiles are stored in
+    the application's state directory. Switching profiles allows you to manage
+    different Google Cloud accounts.
+  - -L: Local port forwarding for the SSH connection (e.g., "8080:localhost:80").
 
 # Setup
 
