@@ -43,8 +43,9 @@ func main() { cli.Main(new(app)) }
 type app struct {
 	// configuration
 	stateDir       string
-	privateKeyPath string // path to the managed private SSH key
+	privateKeyPath string
 
+	// flags
 	jsonOutput   bool
 	profile      string
 	localForward string
@@ -117,13 +118,11 @@ func (a *app) ensureSSHKey() error {
 
 	a.logf("Generating a new SSH key pair for Cloud Shell...")
 
-	// Generate private key.
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return fmt.Errorf("failed to generate RSA key: %w", err)
 	}
 
-	// Encode private key to PEM format.
 	privateKeyPEM := &pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(privateKey),
@@ -132,7 +131,6 @@ func (a *app) ensureSSHKey() error {
 		return fmt.Errorf("failed to write private key: %w", err)
 	}
 
-	// Generate and write public key in OpenSSH format.
 	pub, err := ssh.NewPublicKey(&privateKey.PublicKey)
 	if err != nil {
 		return fmt.Errorf("failed to create public key: %w", err)
@@ -165,6 +163,7 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 	}
 
 	// Start a local server to listen for the OAuth callback.
+
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("could not start local server: %w", err)
@@ -172,10 +171,10 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 	defer l.Close()
 	a.oauthConfig.RedirectURL = fmt.Sprintf("http://%s", l.Addr().String())
 
-	// Channel to receive the authorization code.
-	codeCh := make(chan string)
-	// Channel to signal server shutdown.
-	shutdownCh := make(chan struct{})
+	var (
+		codeCh     = make(chan string)
+		shutdownCh = make(chan struct{})
+	)
 
 	srv := &http.Server{
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -186,19 +185,15 @@ func (a *app) getToken(ctx context.Context) (*oauth2.Token, error) {
 			}
 			fmt.Fprintln(w, "Authentication successful! You can close this window now.")
 			codeCh <- code
-			// Signal server to shutdown.
 			shutdownCh <- struct{}{}
 		}),
 	}
 
-	// Start the server in a goroutine.
 	go func() {
 		if err := srv.Serve(l); err != http.ErrServerClosed {
 			a.logf("local server error: %v", err)
 		}
 	}()
-
-	// Shutdown the server gracefully when signaled.
 	go func() {
 		select {
 		case <-shutdownCh:
@@ -465,11 +460,9 @@ func (a *app) sshExecBinary(ctx context.Context, sshBin string, e environment, a
 	return cmd.Run()
 }
 
-// sshExecGo establishes an interactive SSH session using the native Go SSH client.
 func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) error {
 	env := cli.GetEnv(ctx)
 
-	// Read and parse the private key for authentication.
 	key, err := os.ReadFile(a.privateKeyPath)
 	if err != nil {
 		return fmt.Errorf("failed to read private key: %w", err)
@@ -497,8 +490,7 @@ func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) erro
 	defer client.Close()
 
 	if a.localForward != "" {
-		// Start port forwarding in a goroutine
-		go a.startLocalForwardGo(client, a.localForward)
+		go a.startLocalForward(client, a.localForward)
 	}
 
 	session, err := client.NewSession()
@@ -515,37 +507,26 @@ func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) erro
 		return session.Run(strings.Join(args, " "))
 	}
 
-	// Set up an interactive terminal.
-	// Get the file descriptor for the standard input.
 	fd := int(os.Stdin.Fd())
-	// Check if we are running in a terminal.
 	if !term.IsTerminal(fd) {
 		return errors.New("standard input is not a terminal, cannot start interactive ssh session")
 	}
 
-	// Put the local terminal into "raw mode". This is crucial for passing
-	// control characters (like Ctrl+C) to the remote shell.
 	oldState, err := term.MakeRaw(fd)
 	if err != nil {
 		return fmt.Errorf("failed to set terminal to raw mode: %w", err)
 	}
-	// Restore the terminal state when we're done.
 	defer term.Restore(fd, oldState)
 
-	// Get the terminal dimensions.
 	width, height, err := term.GetSize(fd)
 	if err != nil {
 		return fmt.Errorf("failed to get terminal size: %w", err)
 	}
 
-	// Request a pseudo-terminal (PTY) from the remote server.
-	// "xterm-256color" is a common and safe terminal type to request.
 	if err := session.RequestPty("xterm-256color", height, width, ssh.TerminalModes{}); err != nil {
 		return fmt.Errorf("failed to request pty: %w", err)
 	}
 
-	// Handle terminal resizing.
-	// Create a channel to receive window change signals.
 	winch := make(chan os.Signal, 1)
 	signal.Notify(winch, syscall.SIGWINCH)
 	go func() {
@@ -554,7 +535,6 @@ func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) erro
 			if err != nil {
 				continue
 			}
-			// Send a "window-change" request to the remote server.
 			session.WindowChange(h, w)
 		}
 	}()
@@ -563,14 +543,11 @@ func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) erro
 		return fmt.Errorf("failed to start shell: %w", err)
 	}
 
-	// Wait for the session to finish. The error returned by Wait()
-	// is the exit status of the remote command.
 	return session.Wait()
 }
 
-func (a *app) startLocalForwardGo(client *ssh.Client, forward string) {
-	// Parse local forward string. Format is [bind_address:]port:host:hostport
-	parts := strings.Split(forward, ":")
+func (a *app) startLocalForward(client *ssh.Client, forward string) {
+	parts := strings.Split(forward, ":") // format is [bind_address:]port:host:hostport
 	var localAddr, remoteAddr string
 
 	if len(parts) == 3 {
@@ -597,11 +574,11 @@ func (a *app) startLocalForwardGo(client *ssh.Client, forward string) {
 			a.logf("Local forward accept error: %v", err)
 			continue
 		}
-		go a.handleLocalForwardConnGo(client, conn, remoteAddr)
+		go a.handleLocalForwardConn(client, conn, remoteAddr)
 	}
 }
 
-func (a *app) handleLocalForwardConnGo(client *ssh.Client, localConn net.Conn, remoteAddr string) {
+func (a *app) handleLocalForwardConn(client *ssh.Client, localConn net.Conn, remoteAddr string) {
 	defer localConn.Close()
 
 	remoteConn, err := client.Dial("tcp", remoteAddr)
