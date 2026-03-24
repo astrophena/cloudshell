@@ -50,9 +50,8 @@ To use cloudshell, you need to configure Google Cloud API access:
 # Authentication
 
 The first time you run any command, cloudshell will initiate an OAuth
-authentication flow. You will be prompted to open a URL in your browser, grant
-the application access to your Google account, and paste an authorization code
-back into the terminal.
+authentication flow. Your browser (if supported) will automatically open
+a page where you'll need to grant the app access to your Google account.
 
 Upon successful authentication, an access token is saved to token.json in the
 state directory. This token will be used for all subsequent API requests.
