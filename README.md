@@ -16,10 +16,9 @@ Download the precompiled binary from [releases page].
 
 2. Install with `go install`:
 
-        $ go install go.astrophena.name/cloudshell@latest
+       $ go install go.astrophena.name/cloudshell@latest
 
-   `go install` puts binaries by default to `$GOPATH/bin` (e.g.
-   `~/go/bin`).
+   `go install` puts binaries by default to `$GOPATH/bin` (e.g. `~/go/bin`).
 
    Use `GOBIN` environment variable to change this behavior.
 

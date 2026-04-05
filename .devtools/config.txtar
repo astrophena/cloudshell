@@ -11,6 +11,10 @@
     "run": ["gofmt", "-d"]
   },
   {
+    "run": ["go", "run", "golang.org/x/vuln/cmd/govulncheck@latest", "./..."],
+    "only_in_ci": true
+  },
+  {
     "run": ["go", "tool", "staticcheck", "./..."]
   },
   {
