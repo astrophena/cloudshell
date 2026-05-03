@@ -77,6 +77,8 @@ func (a *app) Run(ctx context.Context) error {
 		return a.info(ctx)
 	case "ssh":
 		return a.ssh(ctx, args...)
+	case "ssh-proxy":
+		return a.sshProxy(ctx, args...)
 	case "start":
 		return a.start(ctx)
 	case "key":
@@ -376,6 +378,43 @@ func (a *app) ssh(ctx context.Context, args ...string) error {
 		return err
 	}
 	return a.sshExec(ctx, env, args...)
+}
+
+func (a *app) sshProxy(ctx context.Context, args ...string) error {
+	if err := a.initClient(ctx); err != nil {
+		return err
+	}
+	if err := a.start(ctx); err != nil {
+		return err
+	}
+	e, err := a.getEnvironment(ctx)
+	if err != nil {
+		return err
+	}
+	if e.SSHHost == "" || e.SSHPort == 0 {
+		return errors.New("connection with SSH is unavailable")
+	}
+
+	addr := net.JoinHostPort(e.SSHHost, fmt.Sprintf("%d", e.SSHPort))
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return fmt.Errorf("failed to connect to SSH host: %w", err)
+	}
+	defer conn.Close()
+
+	env := cli.GetEnv(ctx)
+
+	errc := make(chan error, 2)
+	go func() {
+		_, err := io.Copy(conn, env.Stdin)
+		errc <- err
+	}()
+	go func() {
+		_, err := io.Copy(env.Stdout, conn)
+		errc <- err
+	}()
+
+	return <-errc
 }
 
 func (a *app) start(ctx context.Context) error {

@@ -16,6 +16,8 @@ Where <command> is one of the following:
   - ssh [args...]: Establish an SSH connection to the Cloud Shell environment. If the
     environment is not running, it will be started automatically. Any additional
     arguments are passed directly to the SSH command (e.g. cloudshell ssh "ls /home").
+  - ssh-proxy: Establish a TCP proxy to the SSH server. Useful to integrate
+    with remote development environments via ProxyCommand.
   - start: Start the Cloud Shell environment and wait until it is running.
   - key <subcommand>: Manage additional public SSH keys for the environment.
 
@@ -67,6 +69,25 @@ automatically authorized with the environment.
 
 The key command can still be used to manage additional, user-provided public
 keys if you have advanced use cases that require them.
+
+# Editor Integration
+
+To use cloudshell with remote development editors like Zed, you can configure
+SSH to use the ssh-proxy command as a ProxyCommand.
+
+Add the following to your ~/.ssh/config:
+
+	Host cloudshell
+		ProxyCommand cloudshell ssh-proxy
+		IdentityFile ~/.local/state/cloudshell/key
+		StrictHostKeyChecking no
+		User <your-cloud-shell-username>
+
+Then, you can connect to Cloud Shell in Zed by following the [guide].
+Make sure to replace <your-cloud-shell-username> with the username provided
+by the "cloudshell info" command.
+
+[guide]: https://zed.dev/docs/remote-development
 */
 package main
 
