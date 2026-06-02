@@ -35,6 +35,7 @@ Available flags include:
   - -profile: The profile to use (default: "default"). Profiles are stored in
     the application's state directory. Switching profiles allows you to manage
     different Google Cloud accounts.
+  - -D: Dynamic port forwarding (SOCKS5 proxy, e.g., "1080").
   - -L: Local port forwarding for the SSH connection (e.g., "8080:localhost:80").
 
 # Setup
