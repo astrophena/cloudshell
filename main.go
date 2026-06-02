@@ -21,11 +21,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"syscall"
 	"time"
 	"unicode"
 
@@ -46,9 +44,10 @@ type app struct {
 	privateKeyPath string
 
 	// flags
-	jsonOutput   bool
-	profile      string
-	localForward string
+	jsonOutput     bool
+	profile        string
+	localForward   string
+	dynamicForward string
 
 	// initialized by initClient
 	authed      bool
@@ -61,6 +60,7 @@ func (a *app) Flags(fs *flag.FlagSet) {
 	fs.BoolVar(&a.jsonOutput, "json", false, "Output in JSON format.")
 	fs.StringVar(&a.profile, "profile", "default", "Profile to use.")
 	fs.StringVar(&a.localForward, "L", "", "Local port forwarding (e.g., 8080:localhost:8080).")
+	fs.StringVar(&a.dynamicForward, "D", "", "Dynamic port forwarding (SOCKS5 proxy, e.g., 1080).")
 }
 
 func (a *app) Run(ctx context.Context) error {
@@ -294,6 +294,13 @@ func (a *app) initClient(ctx context.Context) error {
 		xdgStateDir = filepath.Join(home, ".local", "state")
 	}
 	a.stateDir = filepath.Join(xdgStateDir, "cloudshell")
+	if runtime.GOOS == "windows" {
+		configDir, err := os.UserConfigDir()
+		if err != nil {
+			return err
+		}
+		a.stateDir = filepath.Join(configDir, "cloudshell")
+	}
 	if err := os.MkdirAll(a.stateDir, 0o700); err != nil {
 		return err
 	}
@@ -487,6 +494,10 @@ func (a *app) sshExecBinary(ctx context.Context, sshBin string, e environment, a
 		cmdArgs = append(cmdArgs, "-L", a.localForward)
 	}
 
+	if a.dynamicForward != "" {
+		cmdArgs = append(cmdArgs, "-D", a.dynamicForward)
+	}
+
 	target := fmt.Sprintf("%s@%s", e.SSHUsername, e.SSHHost)
 	cmdArgs = append(cmdArgs, target)
 	cmdArgs = append(cmdArgs, args...)
@@ -531,6 +542,9 @@ func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) erro
 	if a.localForward != "" {
 		go a.startLocalForward(client, a.localForward)
 	}
+	if a.dynamicForward != "" {
+		go a.startDynamicForward(client, a.dynamicForward)
+	}
 
 	session, err := client.NewSession()
 	if err != nil {
@@ -566,17 +580,7 @@ func (a *app) sshExecGo(ctx context.Context, e environment, args ...string) erro
 		return fmt.Errorf("failed to request pty: %w", err)
 	}
 
-	winch := make(chan os.Signal, 1)
-	signal.Notify(winch, syscall.SIGWINCH)
-	go func() {
-		for range winch {
-			w, h, err := term.GetSize(fd)
-			if err != nil {
-				continue
-			}
-			session.WindowChange(h, w)
-		}
-	}()
+	notifySigWinch(fd, session)
 
 	if err := session.Shell(); err != nil {
 		return fmt.Errorf("failed to start shell: %w", err)
@@ -634,6 +638,116 @@ func (a *app) handleLocalForwardConn(client *ssh.Client, localConn net.Conn, rem
 	}()
 	go func() {
 		_, err := io.Copy(localConn, remoteConn)
+		errc <- err
+	}()
+
+	<-errc
+}
+
+func (a *app) startDynamicForward(client *ssh.Client, forward string) {
+	addr := forward
+	if !strings.Contains(addr, ":") {
+		addr = "localhost:" + addr
+	}
+
+	l, err := net.Listen("tcp", addr)
+	if err != nil {
+		a.logf("Failed to listen for dynamic forward on %s: %v", addr, err)
+		return
+	}
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			a.logf("Dynamic forward accept error: %v", err)
+			continue
+		}
+		go a.handleDynamicForwardConn(client, conn)
+	}
+}
+
+func (a *app) handleDynamicForwardConn(client *ssh.Client, conn net.Conn) {
+	defer conn.Close()
+
+	// SOCKS5 Handshake
+	buf := make([]byte, 256)
+	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+		return
+	}
+	if buf[0] != 0x05 { // SOCKS5
+		return
+	}
+	nmethods := int(buf[1])
+	if _, err := io.ReadFull(conn, buf[:nmethods]); err != nil {
+		return
+	}
+	// Select NO AUTHENTICATION REQUIRED (0x00)
+	if _, err := conn.Write([]byte{0x05, 0x00}); err != nil {
+		return
+	}
+
+	// SOCKS5 Request
+	if _, err := io.ReadFull(conn, buf[:4]); err != nil {
+		return
+	}
+	if buf[0] != 0x05 || buf[1] != 0x01 { // VER=5, CMD=CONNECT
+		return
+	}
+
+	var addr string
+	switch buf[3] { // ATYP
+	case 0x01: // IPv4
+		if _, err := io.ReadFull(conn, buf[:4]); err != nil {
+			return
+		}
+		addr = net.IP(buf[:4]).String()
+	case 0x03: // Domain name
+		if _, err := io.ReadFull(conn, buf[:1]); err != nil {
+			return
+		}
+		n := int(buf[0])
+		if _, err := io.ReadFull(conn, buf[:n]); err != nil {
+			return
+		}
+		addr = string(buf[:n])
+	case 0x04: // IPv6
+		if _, err := io.ReadFull(conn, buf[:16]); err != nil {
+			return
+		}
+		addr = net.IP(buf[:16]).String()
+	default:
+		return
+	}
+
+	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
+		return
+	}
+	port := (int(buf[0]) << 8) | int(buf[1])
+	dest := net.JoinHostPort(addr, fmt.Sprintf("%d", port))
+
+	remoteConn, err := client.Dial("tcp", dest)
+	if err != nil {
+		// Connection failed.
+		// In SOCKS5, REP=0x01 means general failure.
+		conn.Write([]byte{0x05, 0x01, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+		return
+	}
+	defer remoteConn.Close()
+
+	// Connection successful.
+	// REP=0x00 (succeeded), ATYP=0x01 (IPv4), BND.ADDR=0.0.0.0, BND.PORT=0
+	if _, err := conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0}); err != nil {
+		return
+	}
+
+	errc := make(chan error, 2)
+	go func() {
+		_, err := io.Copy(remoteConn, conn)
+		errc <- err
+	}()
+	go func() {
+		_, err := io.Copy(conn, remoteConn)
 		errc <- err
 	}()
 
