@@ -1,6 +1,6 @@
 module go.astrophena.name/cloudshell
 
-go 1.26.3
+go 1.26.4
 
 require (
 	go.astrophena.name/base v0.19.1
