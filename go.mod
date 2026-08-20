@@ -1,6 +1,6 @@
 module go.astrophena.name/cloudshell
 
-go 1.26.6
+go 1.27.0
 
 require (
 	go.astrophena.name/base v0.23.2
@@ -15,11 +15,11 @@ require (
 	github.com/go4org/hashtriemap v0.0.0-20251130024219-545ba229f689 // indirect
 	github.com/lmittmann/tint v1.1.3 // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260312153236-7ab1446f8b90 // indirect
-	golang.org/x/mod v0.34.0 // indirect
+	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/tools v0.43.0 // indirect
-	honnef.co/go/tools v0.7.0 // indirect
+	golang.org/x/tools v0.44.1-0.20260420230617-19499e7caabc // indirect
+	honnef.co/go/tools v0.8.0 // indirect
 )
 
 tool (
