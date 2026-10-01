@@ -6,7 +6,7 @@ require (
 	go.astrophena.name/base v0.23.4
 	golang.org/x/crypto v0.56.0
 	golang.org/x/oauth2 v0.37.0
-	golang.org/x/term v0.45.0
+	golang.org/x/term v0.46.0
 )
 
 require (
@@ -17,7 +17,7 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20260820142414-ca536658362e // indirect
 	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
 	honnef.co/go/tools v0.8.0 // indirect
 )
